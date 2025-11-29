@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.emompulse.fitness',
-  appName: 'EMOM Pulse',
+  appId: 'com.hittcoach.hittcoach',
+  appName: 'Hiit Coach',
   webDir: 'dist/public',
   server: {
     androidScheme: 'https'
