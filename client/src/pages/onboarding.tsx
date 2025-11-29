@@ -3,6 +3,9 @@
 // - Using EquipmentSelector component for consistent icon-based, multi-select equipment UI.
 // - Persists typed EquipmentId[] to PostgreSQL via /api/profile endpoint.
 // - Normalizes equipment to ensure at least bodyweight is always selected.
+// - Expanded Primary Goal options from 3 to 7 with icons & descriptions.
+// - Added primary + secondary goal selection and stored them in profile.
+// - AI workout generator now uses goals to bias frameworks, intensity, and exercise selection.
 
 import { useState } from "react";
 import { useLocation } from "wouter";
@@ -11,9 +14,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
   Check,
-  Dumbbell,
-  Clock,
   Activity,
+  Dumbbell,
+  Flame,
+  Target,
+  TrendingUp,
+  Heart,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -22,18 +29,31 @@ import { cn } from "@/lib/utils";
 import MobileLayout from "@/components/layout/mobile-layout";
 import { EquipmentSelector } from "@/components/equipment-selector";
 import { normalizeEquipment, type EquipmentId } from "@shared/equipment";
+import { PRIMARY_GOALS, buildGoalWeights, type PrimaryGoalId } from "@shared/goals";
 
+
+// Icon mapping for goals
+const GOAL_ICONS = {
+  activity: Activity,
+  dumbbell: Dumbbell,
+  flame: Flame,
+  target: Target,
+  'trending-up': TrendingUp,
+  heart: Heart,
+  zap: Zap,
+};
 
 export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const [preferences, setPreferences] = useState({
     fitnessLevel: "",
     equipment: ['bodyweight'] as EquipmentId[],
-    goalFocus: ""
+    primaryGoal: null as PrimaryGoalId | null,
+    secondaryGoals: [] as PrimaryGoalId[],
   });
 
   const createProfileMutation = useMutation({
@@ -65,15 +85,70 @@ export default function Onboarding() {
     setPreferences(prev => ({ ...prev, equipment }));
   };
 
+  const handleGoalSelect = (goalId: PrimaryGoalId) => {
+    const { primaryGoal, secondaryGoals } = preferences;
+
+    if (primaryGoal === goalId) {
+      // Tapping primary goal again: deselect it
+      setPreferences(prev => ({
+        ...prev,
+        primaryGoal: null,
+        secondaryGoals: prev.secondaryGoals.filter(g => g !== goalId),
+      }));
+      return;
+    }
+
+    if (secondaryGoals.includes(goalId)) {
+      // Tapping a secondary goal: promote to primary
+      setPreferences(prev => ({
+        ...prev,
+        primaryGoal: goalId,
+        secondaryGoals: primaryGoal ? [primaryGoal, ...prev.secondaryGoals.filter(g => g !== goalId)] : prev.secondaryGoals.filter(g => g !== goalId),
+      }));
+      return;
+    }
+
+    // New selection: set as primary, demote old primary to secondary
+    const newSecondaryGoals = primaryGoal
+      ? [primaryGoal, ...secondaryGoals].slice(0, 2) // Max 2 secondary goals
+      : secondaryGoals;
+
+    setPreferences(prev => ({
+      ...prev,
+      primaryGoal: goalId,
+      secondaryGoals: newSecondaryGoals,
+    }));
+  };
+
   const nextStep = () => {
     if (step < 2) {
       setStep(step + 1);
     } else {
+      // Validate that at least a primary goal is selected
+      if (!preferences.primaryGoal) {
+        toast({
+          title: "Goal Required",
+          description: "Choose at least one primary goal to personalize your training.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Build goal weights from primary + secondary goals
+      const goalWeights = buildGoalWeights(
+        preferences.primaryGoal,
+        preferences.secondaryGoals
+      );
+
       // Normalize equipment before saving (ensure at least bodyweight)
       const normalizedPreferences = {
-        ...preferences,
+        fitnessLevel: preferences.fitnessLevel,
         equipment: normalizeEquipment(preferences.equipment),
+        primaryGoal: preferences.primaryGoal,
+        secondaryGoals: preferences.secondaryGoals,
+        goalWeights,
       };
+
       createProfileMutation.mutate(normalizedPreferences);
     }
   };
@@ -115,32 +190,65 @@ export default function Onboarding() {
       )
     },
     {
-      title: "Primary Goal",
-      subtitle: "What are you training for?",
+      title: "Training Goals",
+      subtitle: "Choose your primary focus (tap again for secondary)",
       component: (
-        <div className="space-y-3">
-          {[
-            { id: "cardio", label: "Cardio & Endurance", icon: Activity },
-            { id: "strength", label: "Strength & Power", icon: Dumbbell },
-            { id: "metcon", label: "Metabolic Conditioning", icon: Clock }
-          ].map((goal) => (
-            <Card 
-              key={goal.id}
-              className={cn(
-                "p-5 border-2 cursor-pointer transition-all duration-200 flex items-center gap-4",
-                preferences.goalFocus === goal.id
-                  ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(0,229,255,0.15)]"
-                  : "border-border/50 bg-card/50 hover:border-primary/50"
-              )}
-              onClick={() => handleSelect("goalFocus", goal.id)}
-              data-testid={`option-goal-${goal.id}`}
-            >
-              <goal.icon className={cn(
-                preferences.goalFocus === goal.id ? "text-primary" : "text-muted-foreground"
-              )} />
-              <span className="text-lg font-bold tracking-wide">{goal.label}</span>
-            </Card>
-          ))}
+        <div className="space-y-3 max-h-[calc(100vh-350px)] overflow-y-auto pr-1">
+          {PRIMARY_GOALS.map((goal) => {
+            const Icon = GOAL_ICONS[goal.iconName];
+            const isPrimary = preferences.primaryGoal === goal.id;
+            const isSecondary = preferences.secondaryGoals.includes(goal.id);
+
+            return (
+              <Card
+                key={goal.id}
+                className={cn(
+                  "p-4 border-2 cursor-pointer transition-all duration-200 relative",
+                  isPrimary &&
+                    "border-primary bg-primary/10 shadow-[0_0_15px_rgba(0,229,255,0.15)]",
+                  isSecondary &&
+                    "border-primary/60 bg-primary/5 shadow-[0_0_10px_rgba(0,229,255,0.08)]",
+                  !isPrimary &&
+                    !isSecondary &&
+                    "border-border/50 bg-card/50 hover:border-primary/50"
+                )}
+                onClick={() => handleGoalSelect(goal.id)}
+                data-testid={`option-goal-${goal.id}`}
+              >
+                <div className="flex items-start gap-3">
+                  <Icon
+                    className={cn(
+                      "mt-1 flex-shrink-0",
+                      isPrimary && "text-primary",
+                      isSecondary && "text-primary/70",
+                      !isPrimary && !isSecondary && "text-muted-foreground"
+                    )}
+                    size={24}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg font-bold tracking-wide">
+                        {goal.label}
+                      </span>
+                      {isPrimary && (
+                        <span className="px-2 py-0.5 text-xs font-bold uppercase bg-primary/20 text-primary rounded">
+                          Primary
+                        </span>
+                      )}
+                      {isSecondary && (
+                        <span className="px-2 py-0.5 text-xs font-bold uppercase bg-primary/10 text-primary/70 rounded">
+                          Secondary
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {goal.subtitle}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )
     }
@@ -185,13 +293,13 @@ export default function Onboarding() {
           </motion.div>
         </AnimatePresence>
 
-        <Button 
-          size="lg" 
+        <Button
+          size="lg"
           className="w-full h-14 text-lg font-bold uppercase tracking-wider bg-primary text-black hover:bg-primary/90 mt-4"
           onClick={nextStep}
           disabled={
             (step === 0 && !preferences.fitnessLevel) ||
-            (step === 2 && !preferences.goalFocus) ||
+            (step === 2 && !preferences.primaryGoal) ||
             createProfileMutation.isPending
           }
           data-testid="button-next"

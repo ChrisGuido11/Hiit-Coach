@@ -3,6 +3,8 @@
 // - Updated to use centralized getEquipmentLabel from shared/equipment.
 // - Persists equipment changes to PostgreSQL via PATCH /api/profile endpoint.
 // - Ensures consistent equipment UX across onboarding and settings.
+// - Added goal viewing and editing with primary/secondary goal support.
+// - Displays user's training goals with visual badges and allows inline editing.
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,20 +14,49 @@ import MobileLayout from "@/components/layout/mobile-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Trash2, Edit, TrendingUp, Clock, Calendar, Award, ChevronRight } from "lucide-react";
+import {
+  LogOut,
+  Trash2,
+  Edit,
+  TrendingUp,
+  Clock,
+  Calendar,
+  Award,
+  ChevronRight,
+  Activity,
+  Dumbbell,
+  Flame,
+  Target,
+  Heart,
+  Zap,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { EquipmentSelector } from "@/components/equipment-selector";
 import { getEquipmentLabel, normalizeEquipment, migrateEquipment, type EquipmentId } from "@shared/equipment";
+import { PRIMARY_GOALS, buildGoalWeights, type PrimaryGoalId } from "@shared/goals";
 
+// Icon mapping for goals
+const GOAL_ICONS = {
+  activity: Activity,
+  dumbbell: Dumbbell,
+  flame: Flame,
+  target: Target,
+  'trending-up': TrendingUp,
+  heart: Heart,
+  zap: Zap,
+};
 
 export default function Profile() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isEditEquipmentOpen, setIsEditEquipmentOpen] = useState(false);
+  const [isEditGoalsOpen, setIsEditGoalsOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState<EquipmentId[]>([]);
+  const [editingPrimaryGoal, setEditingPrimaryGoal] = useState<PrimaryGoalId | null>(null);
+  const [editingSecondaryGoals, setEditingSecondaryGoals] = useState<PrimaryGoalId[]>([]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -52,7 +83,12 @@ export default function Profile() {
   });
 
   const updateProfileMutation = useMutation({
-    mutationFn: async (updates: { equipment: EquipmentId[] }) => {
+    mutationFn: async (updates: {
+      equipment?: EquipmentId[];
+      primaryGoal?: PrimaryGoalId | null;
+      secondaryGoals?: PrimaryGoalId[];
+      goalWeights?: Record<PrimaryGoalId, number>;
+    }) => {
       const res = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -62,10 +98,14 @@ export default function Profile() {
       if (!res.ok) throw new Error("Failed to update profile");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
-      toast({ title: "Profile Updated", description: "Your equipment preferences have been saved." });
-      setIsEditOpen(false);
+      const message = variables.equipment
+        ? "Your equipment preferences have been saved."
+        : "Your training goals have been updated.";
+      toast({ title: "Profile Updated", description: message });
+      setIsEditEquipmentOpen(false);
+      setIsEditGoalsOpen(false);
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -105,13 +145,64 @@ export default function Profile() {
       // Migrate and normalize existing equipment
       const migrated = migrateEquipment(profile.equipment as string[]);
       setEditingEquipment(migrated);
-      setIsEditOpen(true);
+      setIsEditEquipmentOpen(true);
     }
   };
 
   const handleSaveEquipment = () => {
     const normalized = normalizeEquipment(editingEquipment);
     updateProfileMutation.mutate({ equipment: normalized });
+  };
+
+  const handleEditGoals = () => {
+    setEditingPrimaryGoal(profile?.primaryGoal ?? null);
+    setEditingSecondaryGoals(profile?.secondaryGoals ?? []);
+    setIsEditGoalsOpen(true);
+  };
+
+  const handleGoalSelect = (goalId: PrimaryGoalId) => {
+    if (editingPrimaryGoal === goalId) {
+      // Deselect primary
+      setEditingPrimaryGoal(null);
+      setEditingSecondaryGoals(prev => prev.filter(g => g !== goalId));
+      return;
+    }
+
+    if (editingSecondaryGoals.includes(goalId)) {
+      // Promote to primary
+      setEditingPrimaryGoal(goalId);
+      setEditingSecondaryGoals(prev =>
+        editingPrimaryGoal ? [editingPrimaryGoal, ...prev.filter(g => g !== goalId)] : prev.filter(g => g !== goalId)
+      );
+      return;
+    }
+
+    // New selection: set as primary, demote old primary to secondary
+    const newSecondaryGoals = editingPrimaryGoal
+      ? [editingPrimaryGoal, ...editingSecondaryGoals].slice(0, 2)
+      : editingSecondaryGoals;
+
+    setEditingPrimaryGoal(goalId);
+    setEditingSecondaryGoals(newSecondaryGoals);
+  };
+
+  const handleSaveGoals = () => {
+    if (!editingPrimaryGoal) {
+      toast({
+        title: "Goal Required",
+        description: "Choose at least one primary goal.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const goalWeights = buildGoalWeights(editingPrimaryGoal, editingSecondaryGoals);
+
+    updateProfileMutation.mutate({
+      primaryGoal: editingPrimaryGoal,
+      secondaryGoals: editingSecondaryGoals,
+      goalWeights,
+    });
   };
 
   if (authLoading) {
@@ -169,64 +260,185 @@ export default function Profile() {
         {/* Fitness Profile */}
         {profile && (
           <Card className="p-5 bg-card/40 border-border/40">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white">Training Profile</h2>
-              <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-primary hover:text-primary/80"
-                    onClick={handleEditEquipment}
-                  >
-                    <Edit size={16} />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Edit Equipment</DialogTitle>
-                  </DialogHeader>
-                  <div className="py-4">
-                    <EquipmentSelector
-                      value={editingEquipment}
-                      onChange={setEditingEquipment}
-                      mode="settings"
-                    />
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsEditOpen(false)}
-                      disabled={updateProfileMutation.isPending}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleSaveEquipment}
-                      disabled={updateProfileMutation.isPending}
-                    >
-                      {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-            <div className="space-y-3 text-sm">
+            <h2 className="text-lg font-bold text-white mb-4">Training Profile</h2>
+
+            <div className="space-y-4 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Level</span>
                 <span className="font-bold text-white">{profile.fitnessLevel}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Goal</span>
-                <span className="font-bold text-white capitalize">{profile.goalFocus}</span>
+
+              {/* Goals Section */}
+              <div className="border-t border-border/50 pt-4">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-muted-foreground">Training Goals</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-primary hover:text-primary/80"
+                    onClick={handleEditGoals}
+                  >
+                    <Edit size={14} />
+                  </Button>
+                </div>
+
+                {profile.primaryGoal ? (
+                  <div className="space-y-2">
+                    {(() => {
+                      const primaryConfig = PRIMARY_GOALS.find(g => g.id === profile.primaryGoal);
+                      const PrimaryIcon = primaryConfig ? GOAL_ICONS[primaryConfig.iconName] : Target;
+                      return (
+                        <div className="flex items-center gap-2">
+                          <PrimaryIcon className="text-primary flex-shrink-0" size={16} />
+                          <span className="font-bold text-white flex-1">{primaryConfig?.label || 'General Fitness'}</span>
+                          <span className="px-2 py-0.5 text-xs font-bold uppercase bg-primary/20 text-primary rounded">
+                            Primary
+                          </span>
+                        </div>
+                      );
+                    })()}
+
+                    {profile.secondaryGoals && profile.secondaryGoals.length > 0 && (
+                      <div className="pl-6 space-y-1.5">
+                        {profile.secondaryGoals.map((goalId) => {
+                          const goalConfig = PRIMARY_GOALS.find(g => g.id === goalId);
+                          const SecondaryIcon = goalConfig ? GOAL_ICONS[goalConfig.iconName] : Target;
+                          return (
+                            <div key={goalId} className="flex items-center gap-2 text-xs">
+                              <SecondaryIcon className="text-primary/70 flex-shrink-0" size={14} />
+                              <span className="text-muted-foreground">{goalConfig?.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">No goals set</p>
+                )}
               </div>
-              <div className="flex justify-between items-start">
-                <span className="text-muted-foreground">Equipment</span>
-                <span className="font-bold text-white text-right max-w-[60%]">
+
+              {/* Equipment Section */}
+              <div className="border-t border-border/50 pt-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-muted-foreground">Equipment</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-primary hover:text-primary/80"
+                    onClick={handleEditEquipment}
+                  >
+                    <Edit size={14} />
+                  </Button>
+                </div>
+                <p className="font-bold text-white text-sm">
                   {migrateEquipment(profile.equipment as string[]).map(getEquipmentLabel).join(", ")}
-                </span>
+                </p>
               </div>
             </div>
+
+            {/* Equipment Edit Dialog */}
+            <Dialog open={isEditEquipmentOpen} onOpenChange={setIsEditEquipmentOpen}>
+              <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Edit Equipment</DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                  <EquipmentSelector
+                    value={editingEquipment}
+                    onChange={setEditingEquipment}
+                    mode="settings"
+                  />
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditEquipmentOpen(false)}
+                    disabled={updateProfileMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSaveEquipment}
+                    disabled={updateProfileMutation.isPending}
+                  >
+                    {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Goals Edit Dialog */}
+            <Dialog open={isEditGoalsOpen} onOpenChange={setIsEditGoalsOpen}>
+              <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Edit Training Goals</DialogTitle>
+                </DialogHeader>
+                <div className="py-4 space-y-3 max-h-[60vh] overflow-y-auto">
+                  {PRIMARY_GOALS.map((goal) => {
+                    const Icon = GOAL_ICONS[goal.iconName];
+                    const isPrimary = editingPrimaryGoal === goal.id;
+                    const isSecondary = editingSecondaryGoals.includes(goal.id);
+
+                    return (
+                      <Card
+                        key={goal.id}
+                        className={cn(
+                          "p-3 border-2 cursor-pointer transition-all duration-200",
+                          isPrimary && "border-primary bg-primary/10",
+                          isSecondary && "border-primary/60 bg-primary/5",
+                          !isPrimary && !isSecondary && "border-border/50 bg-card/50 hover:border-primary/50"
+                        )}
+                        onClick={() => handleGoalSelect(goal.id)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Icon
+                            className={cn(
+                              "mt-0.5 flex-shrink-0",
+                              isPrimary && "text-primary",
+                              isSecondary && "text-primary/70",
+                              !isPrimary && !isSecondary && "text-muted-foreground"
+                            )}
+                            size={20}
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-bold text-sm">{goal.label}</span>
+                              {isPrimary && (
+                                <span className="px-1.5 py-0.5 text-xs font-bold uppercase bg-primary/20 text-primary rounded">
+                                  Primary
+                                </span>
+                              )}
+                              {isSecondary && (
+                                <span className="px-1.5 py-0.5 text-xs font-bold uppercase bg-primary/10 text-primary/70 rounded">
+                                  Secondary
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">{goal.subtitle}</p>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditGoalsOpen(false)}
+                    disabled={updateProfileMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSaveGoals}
+                    disabled={updateProfileMutation.isPending || !editingPrimaryGoal}
+                  >
+                    {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </Card>
         )}
 
