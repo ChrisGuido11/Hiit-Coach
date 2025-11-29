@@ -24,24 +24,24 @@ function Router() {
     );
   }
 
+  if (!isAuthenticated) {
+    return (
+      <Switch>
+        <Route path="/" component={Landing} />
+        <Route path="/:rest*" component={Landing} />
+      </Switch>
+    );
+  }
+
   return (
     <Switch>
-      {!isAuthenticated ? (
-        <>
-          <Route path="/" component={Landing} />
-          <Route path="/:rest*" component={Landing} />
-        </>
-      ) : (
-        <>
-          <Route path="/" component={Home} />
-          <Route path="/onboarding" component={Onboarding} />
-          <Route path="/workout" component={WorkoutDetail} />
-          <Route path="/workout/runner" component={WorkoutRunner} />
-          <Route path="/workout/complete" component={WorkoutComplete} />
-          <Route path="/profile" component={Profile} />
-          <Route component={NotFound} />
-        </>
-      )}
+      <Route path="/" component={Home} />
+      <Route path="/onboarding" component={Onboarding} />
+      <Route path="/workout" component={WorkoutDetail} />
+      <Route path="/workout/runner" component={WorkoutRunner} />
+      <Route path="/workout/complete" component={WorkoutComplete} />
+      <Route path="/profile" component={Profile} />
+      <Route component={NotFound} />
     </Switch>
   );
 }
