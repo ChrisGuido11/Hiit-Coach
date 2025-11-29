@@ -1,7 +1,9 @@
 // CHANGE SUMMARY (2025-11-29):
 // - Imported EquipmentId type from centralized equipment config.
 // - Profile equipment field now uses typed EquipmentId[] instead of string[].
-// - This ensures type safety across the entire equipment personalization system.
+// - Added PrimaryGoalId type and goal-related fields to profiles table.
+// - Profiles now support primaryGoal, secondaryGoals, and goalWeights for AI personalization.
+// - This ensures type safety across the entire equipment + goal personalization system.
 
 import { sql } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
@@ -19,6 +21,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import type { EquipmentId } from "./equipment";
+import type { PrimaryGoalId } from "./goals";
 
 // Session storage table (required for Replit Auth)
 export const sessions = pgTable(
@@ -52,7 +55,10 @@ export const profiles = pgTable("profiles", {
   displayName: text("display_name"),
   fitnessLevel: text("fitness_level").notNull(), // "Beginner", "Intermediate", "Advanced", "Elite"
   equipment: jsonb("equipment").notNull().$type<EquipmentId[]>(), // Typed equipment IDs from centralized config
-  goalFocus: text("goal_focus").notNull(), // "cardio", "strength", "metcon"
+  goalFocus: text("goal_focus"), // DEPRECATED: Legacy field for backward compatibility ("cardio", "strength", "metcon")
+  primaryGoal: text("primary_goal").$type<PrimaryGoalId>(), // New: Primary training goal
+  secondaryGoals: jsonb("secondary_goals").$type<PrimaryGoalId[]>(), // New: Optional secondary goals
+  goalWeights: jsonb("goal_weights").$type<Record<PrimaryGoalId, number>>(), // New: AI-facing goal weights
   skillScore: integer("skill_score").default(50).notNull(), // 0-100
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

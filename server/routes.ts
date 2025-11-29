@@ -99,18 +99,20 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const profile = await storage.getProfile(userId);
-      
+
       if (!profile) {
         return res.status(404).json({ message: "Profile not found. Please complete onboarding first." });
       }
-      
+
       const workout = generateEMOMWorkout(
         profile.skillScore,
         profile.fitnessLevel,
         profile.equipment as string[],
-        profile.goalFocus
+        profile.goalFocus ?? null,
+        profile.primaryGoal ?? null,
+        profile.goalWeights ?? undefined
       );
-      
+
       res.json(workout);
     } catch (error) {
       console.error("Error generating workout:", error);
