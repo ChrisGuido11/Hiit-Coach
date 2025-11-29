@@ -56,7 +56,7 @@ export default function WorkoutDetail() {
           {/* Summary */}
           <div className="text-center space-y-2">
             <h1 className="text-5xl font-display font-bold text-white uppercase">{workout.focusLabel}</h1>
-            <p className="text-xl text-muted-foreground">{workout.durationMinutes} Minute EMOM</p>
+            <p className="text-xl text-muted-foreground">{workout.durationMinutes} Minute HIIT</p>
             <div className="inline-block px-4 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary text-sm font-bold uppercase">
               {workout.difficultyTag}
             </div>
@@ -93,7 +93,7 @@ export default function WorkoutDetail() {
             data-testid="button-start-emom"
           >
             <Play className="w-5 h-5 mr-2 fill-current" />
-            Start EMOM
+            Start HIIT
           </Button>
         </div>
       </div>
