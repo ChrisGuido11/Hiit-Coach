@@ -29,10 +29,10 @@ export default function Landing() {
             transition={{ delay: 0.2 }}
           >
             <h1 className="text-6xl font-display font-bold text-white mb-3 leading-none">
-              EMOM<br />PULSE
+              HIIT<br />COACH
             </h1>
             <p className="text-xl text-muted-foreground">
-              Every Minute Matters
+              Maximize Every Interval
             </p>
           </motion.div>
 
@@ -44,7 +44,7 @@ export default function Landing() {
             className="grid grid-cols-2 gap-3 w-full max-w-sm mt-8"
           >
             {[
-              { icon: Timer, label: "EMOM Timer" },
+              { icon: Timer, label: "HIIT Timer" },
               { icon: Target, label: "Personalized" },
               { icon: TrendingUp, label: "Track Progress" },
               { icon: Zap, label: "Adaptive AI" },

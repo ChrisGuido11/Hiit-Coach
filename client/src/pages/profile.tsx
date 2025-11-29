@@ -165,7 +165,7 @@ export default function Profile() {
                       <Award className="text-muted-foreground w-6 h-6" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-white capitalize">{session.focusLabel} EMOM</h3>
+                      <h3 className="font-bold text-white capitalize">{session.focusLabel} HIIT</h3>
                       <p className="text-xs text-muted-foreground">
                         {new Date(session.createdAt).toLocaleDateString()} • {session.durationMinutes} min
                       </p>
