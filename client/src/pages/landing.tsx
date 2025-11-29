@@ -32,7 +32,7 @@ export default function Landing() {
               HIIT<br />COACH
             </h1>
             <p className="text-xl text-muted-foreground">
-              Maximize Every Interval
+              AI-Powered Training, Personalized for Every Level
             </p>
           </motion.div>
 
