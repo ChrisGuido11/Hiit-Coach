@@ -1,3 +1,8 @@
+// CHANGE SUMMARY (2025-11-29):
+// - Imported EquipmentId type from centralized equipment config.
+// - Profile equipment field now uses typed EquipmentId[] instead of string[].
+// - This ensures type safety across the entire equipment personalization system.
+
 import { sql } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
 import {
@@ -13,6 +18,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import type { EquipmentId } from "./equipment";
 
 // Session storage table (required for Replit Auth)
 export const sessions = pgTable(
@@ -45,7 +51,7 @@ export const profiles = pgTable("profiles", {
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
   displayName: text("display_name"),
   fitnessLevel: text("fitness_level").notNull(), // "Beginner", "Intermediate", "Advanced", "Elite"
-  equipment: jsonb("equipment").notNull().$type<string[]>(), // ["Dumbbells", "Kettlebell", etc]
+  equipment: jsonb("equipment").notNull().$type<EquipmentId[]>(), // Typed equipment IDs from centralized config
   goalFocus: text("goal_focus").notNull(), // "cardio", "strength", "metcon"
   skillScore: integer("skill_score").default(50).notNull(), // 0-100
   createdAt: timestamp("created_at").defaultNow().notNull(),

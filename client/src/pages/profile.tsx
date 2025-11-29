@@ -1,3 +1,9 @@
+// CHANGE SUMMARY (2025-11-29):
+// - Added equipment editing dialog using EquipmentSelector component.
+// - Updated to use centralized getEquipmentLabel from shared/equipment.
+// - Persists equipment changes to PostgreSQL via PATCH /api/profile endpoint.
+// - Ensures consistent equipment UX across onboarding and settings.
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,47 +16,16 @@ import { LogOut, Trash2, Edit, TrendingUp, Clock, Calendar, Award, ChevronRight 
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { EquipmentSelector } from "@/components/equipment-selector";
+import { getEquipmentLabel, normalizeEquipment, migrateEquipment, type EquipmentId } from "@shared/equipment";
 
-/**
- * Equipment display mapping for backward compatibility
- * Handles both old and new equipment formats and returns user-friendly labels
- */
-const EQUIPMENT_DISPLAY_MAP: Record<string, string> = {
-  // Old format
-  "None (Bodyweight)": "Bodyweight",
-  "Dumbbells": "Dumbbells",
-  "Kettlebell": "Kettlebells",
-  "Pull-up Bar": "Pull-Up Bar",
-  "Jump Rope": "Jump Rope",
-  "Box": "Step/Box",
-  // New format
-  "bodyweight": "Bodyweight",
-  "dumbbells": "Dumbbells",
-  "kettlebells": "Kettlebells",
-  "resistance_bands": "Resistance Bands",
-  "barbell": "Barbell",
-  "pull_up_bar": "Pull-Up Bar",
-  "bench": "Bench",
-  "medicine_ball": "Medicine Ball",
-  "jump_rope": "Jump Rope",
-  "treadmill": "Treadmill",
-  "stationary_bike": "Stationary Bike",
-  "rower": "Rower",
-  "elliptical": "Elliptical",
-  "sliders": "Sliders",
-  "step_or_box": "Step/Box",
-  "weight_machines": "Weight Machines",
-};
-
-function getEquipmentLabel(key: string): string {
-  return EQUIPMENT_DISPLAY_MAP[key] || key;
-}
 
 export default function Profile() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingEquipment, setEditingEquipment] = useState<EquipmentId[]>([]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -74,6 +49,27 @@ export default function Profile() {
   const { data: history = [] } = useQuery({
     queryKey: ["/api/workout/history"],
     enabled: !!user,
+  });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async (updates: { equipment: EquipmentId[] }) => {
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update profile");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      toast({ title: "Profile Updated", description: "Your equipment preferences have been saved." });
+      setIsEditOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
   });
 
   const deleteAccountMutation = useMutation({
@@ -102,6 +98,20 @@ export default function Profile() {
     if (confirm("Are you sure? This will permanently delete your account and all workout data.")) {
       deleteAccountMutation.mutate();
     }
+  };
+
+  const handleEditEquipment = () => {
+    if (profile?.equipment) {
+      // Migrate and normalize existing equipment
+      const migrated = migrateEquipment(profile.equipment as string[]);
+      setEditingEquipment(migrated);
+      setIsEditOpen(true);
+    }
+  };
+
+  const handleSaveEquipment = () => {
+    const normalized = normalizeEquipment(editingEquipment);
+    updateProfileMutation.mutate({ equipment: normalized });
   };
 
   if (authLoading) {
@@ -161,9 +171,45 @@ export default function Profile() {
           <Card className="p-5 bg-card/40 border-border/40">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-white">Training Profile</h2>
-              <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
-                <Edit size={16} />
-              </Button>
+              <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-primary hover:text-primary/80"
+                    onClick={handleEditEquipment}
+                  >
+                    <Edit size={16} />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Edit Equipment</DialogTitle>
+                  </DialogHeader>
+                  <div className="py-4">
+                    <EquipmentSelector
+                      value={editingEquipment}
+                      onChange={setEditingEquipment}
+                      mode="settings"
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsEditOpen(false)}
+                      disabled={updateProfileMutation.isPending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleSaveEquipment}
+                      disabled={updateProfileMutation.isPending}
+                    >
+                      {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
@@ -177,7 +223,7 @@ export default function Profile() {
               <div className="flex justify-between items-start">
                 <span className="text-muted-foreground">Equipment</span>
                 <span className="font-bold text-white text-right max-w-[60%]">
-                  {(profile.equipment as string[]).map(getEquipmentLabel).join(", ")}
+                  {migrateEquipment(profile.equipment as string[]).map(getEquipmentLabel).join(", ")}
                 </span>
               </div>
             </div>
