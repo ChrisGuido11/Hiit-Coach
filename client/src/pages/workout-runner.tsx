@@ -122,10 +122,11 @@ export default function WorkoutRunner() {
     if (workout.framework === "EMOM") {
       return `Round ${currentRoundIndex + 1}/${workout.rounds.length}`;
     } else if (workout.framework === "Tabata") {
-      const currentSet = Math.floor(currentRoundIndex / (workout.sets || 8)) + 1;
-      const totalSets = Math.ceil(workout.rounds.length / (workout.sets || 8));
-      const intervalInSet = (currentRoundIndex % (workout.sets || 8)) + 1;
-      return `Set ${currentSet}/${totalSets} • ${intervalInSet}/${workout.sets || 8}`;
+      const intervalsPerExercise = workout.sets || 8;
+      const totalExercises = Math.ceil(workout.rounds.length / intervalsPerExercise);
+      const exerciseIndex = Math.floor(currentRoundIndex / intervalsPerExercise) + 1;
+      const intervalInExercise = (currentRoundIndex % intervalsPerExercise) + 1;
+      return `Exercise ${exerciseIndex}/${totalExercises} • Interval ${intervalInExercise}/${intervalsPerExercise}`;
     } else if (workout.framework === "AMRAP") {
       return `AMRAP • ${workout.durationMinutes} min`;
     } else if (workout.framework === "Circuit") {
@@ -203,8 +204,30 @@ export default function WorkoutRunner() {
               <h2 className="text-4xl font-display font-bold text-white uppercase">{currentExercise.exerciseName}</h2>
             </div>
             <div className="text-right">
-              <span className="text-4xl font-display font-bold text-primary">{currentExercise.reps}</span>
-              <p className="text-muted-foreground uppercase text-xs font-bold tracking-wider">Reps</p>
+              {workout.framework === "Tabata" ? (
+                <>
+                  <span className="text-4xl font-display font-bold text-primary">
+                    {secondsLeft}s
+                  </span>
+                  <p className="text-muted-foreground uppercase text-xs font-bold tracking-wider">
+                    {isResting ? "Rest Interval" : "Work Interval"}
+                  </p>
+                  {currentExercise.reps ? (
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Target ~{currentExercise.reps} reps
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <span className="text-4xl font-display font-bold text-primary">
+                    {currentExercise.reps}
+                  </span>
+                  <p className="text-muted-foreground uppercase text-xs font-bold tracking-wider">
+                    Reps
+                  </p>
+                </>
+              )}
             </div>
           </div>
 
@@ -217,7 +240,13 @@ export default function WorkoutRunner() {
                 <p className="font-bold text-white">{nextExercise ? nextExercise.exerciseName : "Finish"}</p>
               </div>
             </div>
-            {nextExercise && <span className="font-display text-xl text-muted-foreground">{nextExercise.reps}</span>}
+            {nextExercise && (
+              <span className="font-display text-xl text-muted-foreground">
+                {workout.framework === "Tabata"
+                  ? `${workout.workSeconds ?? 20}s`
+                  : `${nextExercise.reps} reps`}
+              </span>
+            )}
           </div>
 
           {/* Controls */}

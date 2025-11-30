@@ -617,7 +617,8 @@ export function generateCircuitWorkout(
 
   // Create rounds array (circuit repeated for totalRounds)
   const rounds: GeneratedWorkout['rounds'] = [];
-  let minuteIndex = 0;
+  // 1-based index so UI never shows interval "0"
+  let minuteIndex = 1;
 
   for (let round = 0; round < totalRounds; round++) {
     for (const exercise of circuitExercises) {

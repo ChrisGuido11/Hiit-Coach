@@ -114,7 +114,9 @@ export default function WorkoutDetail() {
           {/* Summary */}
           <div className="text-center space-y-2">
             <h1 className="text-5xl font-display font-bold text-white uppercase">{workout.focusLabel}</h1>
-            <p className="text-xl text-muted-foreground">{workout.durationMinutes} Minute HIIT</p>
+            <p className="text-xl text-muted-foreground">
+              {workout.durationMinutes} Min {frameworkConfig?.name ?? "HIIT"}
+            </p>
             <div className="inline-block px-4 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary text-sm font-bold uppercase">
               {workout.difficultyTag}
             </div>
@@ -135,8 +137,26 @@ export default function WorkoutDetail() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-2xl font-display font-bold text-white">{round.reps}</span>
-                  <p className="text-xs text-muted-foreground uppercase">Reps</p>
+                  {workout.framework === "Tabata" ? (
+                    <>
+                      <span className="text-2xl font-display font-bold text-white">
+                        {workout.workSeconds ?? 20}s
+                      </span>
+                      <p className="text-xs text-muted-foreground uppercase">
+                        Interval • {workout.sets || 8} rounds
+                      </p>
+                      {round.reps ? (
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Target ~{round.reps} reps
+                        </p>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-2xl font-display font-bold text-white">{round.reps}</span>
+                      <p className="text-xs text-muted-foreground uppercase">Reps</p>
+                    </>
+                  )}
                 </div>
               </Card>
             ))}
@@ -148,7 +168,7 @@ export default function WorkoutDetail() {
           <Button
             className="w-full h-14 text-lg font-bold uppercase tracking-wider bg-primary text-black hover:bg-primary/90"
             onClick={() => setLocation("/workout/runner")}
-            data-testid="button-start-emom"
+            data-testid="button-start-workout"
           >
             <Play className="w-5 h-5 mr-2 fill-current" />
             Start {workout.framework || "HIIT"}

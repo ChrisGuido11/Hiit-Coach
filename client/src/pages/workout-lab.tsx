@@ -20,6 +20,36 @@ const FRAMEWORK_ICONS: Record<Framework, typeof Zap> = {
   Circuit: Repeat,
 };
 
+function getWorkoutSummaryMeta(workout: GeneratedWorkout) {
+  switch (workout.framework) {
+    case "EMOM":
+      return {
+        formatLabel: "EMOM",
+        countLabel: "minutes",
+      };
+    case "Tabata":
+      return {
+        formatLabel: "Tabata",
+        countLabel: "intervals",
+      };
+    case "AMRAP":
+      return {
+        formatLabel: "AMRAP",
+        countLabel: "exercises in circuit",
+      };
+    case "Circuit":
+      return {
+        formatLabel: "Circuit",
+        countLabel: "intervals",
+      };
+    default:
+      return {
+        formatLabel: workout.framework,
+        countLabel: "rounds",
+      };
+  }
+}
+
 export default function WorkoutLab() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -50,9 +80,10 @@ export default function WorkoutLab() {
       // Cache the workout for detail screen
       queryClient.setQueryData(["/api/workout/generate"], data);
 
+      const meta = getWorkoutSummaryMeta(data);
       toast({
-        title: `${framework} Workout Generated!`,
-        description: `${data.durationMinutes} min • ${data.rounds.length} exercises`,
+        title: `${meta.formatLabel} Workout Generated!`,
+        description: `${data.durationMinutes} min • ${data.rounds.length} ${meta.countLabel}`,
       });
     },
     onError: (error) => {
