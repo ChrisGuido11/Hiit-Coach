@@ -1,0 +1,94 @@
+Frontend / backend UX inconsistencies
+2.1. Home “Daily WOD” shows AI workout… but runs a static mock workout
+
+Files:
+
+client/src/pages/home.tsx
+
+client/src/pages/workout.tsx
+
+client/src/pages/workout-detail.tsx
+
+client/src/pages/workout-runner.tsx
+
+What backend does:
+
+GET /api/workout/generate (in server/routes.ts) generates a personalized workout using:
+
+profile.skillScore
+
+fitnessLevel
+
+equipment
+
+primaryGoal, secondaryGoals / goalWeights
+
+Chooses framework via pickFrameworkForGoal or explicit ?framework= from Workout Lab.
+
+Returns a GeneratedWorkout with:
+
+framework: "EMOM" | "Tabata" | "AMRAP" | "Circuit"
+
+durationMinutes
+
+difficultyTag
+
+focusLabel
+
+rounds[...] etc.
+
+What the Home screen does:
+
+In home.tsx you’re already calling:
+
+const { data: workout } = useQuery({
+  queryKey: ["/api/workout/generate"],
+  enabled: !!user && !!profile,
+});
+
+
+You show a nice Daily WOD card with:
+
+{workout.focusLabel} HIIT
+{workout.durationMinutes} Min • {workout.rounds.length} Exercises • {workout.difficultyTag}
+
+
+But the Start Workout button links to:
+
+<Link href="/workout">
+  <Button>Start Workout</Button>
+</Link>
+
+
+What /workout actually is:
+
+client/src/pages/workout.tsx is a mock, hard-coded timer using:
+
+const WORKOUT = {
+  name: "The Gauntlet",
+  totalMinutes: 5,
+  exercises: [...]
+};
+
+
+No AI, no backend, no personalization, no profile, no skillScore.
+
+Meanwhile:
+
+The real AI workout flow is:
+
+/api/workout/generate → cached under ["/api/workout/generate"]
+
+WorkoutLab uses the same endpoint for framework-specific generation.
+
+workout-detail.tsx and workout-runner.tsx also read the same queryKey.
+
+Resulting UX problem:
+
+The app visually sells: “Daily AI workout tailored to you.”
+
+But the main CTA (Start Workout on Home + Timer tab /workout) runs a demo workout that ignores AI, profile, and history.
+
+The true AI-powered runner (/workout-detail + /workout/runner) is basically hidden / unused in the real flow.
+
+This is the biggest UX mismatch: backend is doing smart AI stuff, but the main button is wired to a static toy.
