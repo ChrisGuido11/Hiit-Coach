@@ -1,16 +1,16 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { Link } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import { Play, Calendar, TrendingUp, Flame, Clock, ArrowRight, RotateCw, Beaker } from "lucide-react";
+import { Play, TrendingUp, Flame, Clock, ArrowRight, RotateCw, Beaker, Flame as FlameIcon } from "lucide-react";
 import MobileLayout from "@/components/layout/mobile-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
-import type { GeneratedWorkout, Profile as ProfileModel } from "@/../../shared/schema";
+import type { GeneratedWorkout, Profile as ProfileModel, WorkoutSession } from "@/../../shared/schema";
 import { getQueryFn } from "@/lib/queryClient";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis } from "recharts";
 
 function getTimeGreeting(): string {
   const hour = new Date().getHours();
@@ -22,7 +22,6 @@ function getTimeGreeting(): string {
 export default function Home() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -50,13 +49,101 @@ export default function Home() {
     retry: false,
   });
 
-  const { data: history = [] } = useQuery<any[]>({
+  const { data: history = [] } = useQuery<WorkoutSession[] | null>({
     queryKey: ["/api/workout/history"],
     enabled: !!user,
+    queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
-  const totalWorkouts = history.length;
-  const totalMinutes = history.reduce((sum: number, session: any) => sum + session.durationMinutes, 0);
+  const historyData = history ?? [];
+
+  const sortedHistory = [...historyData].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - 6);
+
+  const dateKey = (date: Date) => {
+    const normalized = new Date(date);
+    normalized.setHours(0, 0, 0, 0);
+    return normalized.toDateString();
+  };
+
+  const uniqueWorkoutDays = Array.from(
+    new Set(sortedHistory.map((session) => dateKey(new Date(session.createdAt))))
+  ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
+  let currentStreak = 0;
+  let bestStreak = 0;
+  let previousDate: Date | null = null;
+
+  uniqueWorkoutDays.forEach((day) => {
+    const currentDate = new Date(day);
+    if (!previousDate) {
+      currentStreak = 1;
+    } else {
+      const diffDays = Math.round(
+        (previousDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      currentStreak = diffDays === 1 ? currentStreak + 1 : 1;
+    }
+    bestStreak = Math.max(bestStreak, currentStreak);
+    previousDate = currentDate;
+  });
+
+  const streakNextBadge = Math.max(currentStreak + 1, bestStreak + 1);
+
+  const weeklyVolumeData = Array.from({ length: 7 }).map((_, index) => {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + index);
+    const key = dateKey(date);
+    const minutes = sortedHistory
+      .filter((session) => dateKey(new Date(session.createdAt)) === key)
+      .reduce((sum, session) => sum + session.durationMinutes, 0);
+
+    return {
+      day: date.toLocaleDateString(undefined, { weekday: "short" }),
+      minutes,
+    };
+  });
+
+  const weeklyMinutes = weeklyVolumeData.reduce((sum, day) => sum + day.minutes, 0);
+
+  const rpeTrendData = sortedHistory
+    .filter((session) => typeof session.perceivedExertion === "number")
+    .slice(0, 7)
+    .reverse()
+    .map((session, index) => ({
+      label: `S${index + 1}`,
+      rpe: session.perceivedExertion ?? 0,
+      difficulty: session.difficultyTag,
+      date: new Date(session.createdAt).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      }),
+    }));
+
+  const averageRpe =
+    rpeTrendData.length > 0
+      ? rpeTrendData.reduce((sum, entry) => sum + entry.rpe, 0) / rpeTrendData.length
+      : null;
+
+  const rpeChange =
+    rpeTrendData.length > 1
+      ? rpeTrendData[rpeTrendData.length - 1].rpe - rpeTrendData[0].rpe
+      : 0;
+
+  const weeklySessions = sortedHistory.filter(
+    (session) => new Date(session.createdAt).getTime() >= weekStart.getTime()
+  );
+
+  const recentActivity = weeklySessions.length > 0 ? weeklySessions : sortedHistory.slice(0, 5);
+
+  const totalWorkouts = historyData.length;
+  const totalMinutes = historyData.reduce((sum, session) => sum + session.durationMinutes, 0);
 
   if (authLoading) {
     return (
@@ -201,20 +288,107 @@ export default function Home() {
           </Card>
         </div>
 
+        {/* Streaks & Weekly Stats */}
+        <div className="grid gap-4">
+          <Card className="p-4 bg-card/50 border-border/50">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase font-bold text-primary tracking-wider">Streaks</p>
+                <h3 className="text-xl font-bold text-white">{currentStreak || 0}-Day Current Streak</h3>
+                <p className="text-sm text-muted-foreground">
+                  Best streak: {bestStreak || 0} days. Keep going to hit {streakNextBadge}!
+                </p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
+                    Active
+                  </span>
+                  <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-bold uppercase text-gray-200">
+                    Personal Best: {bestStreak || 0}d
+                  </span>
+                </div>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-secondary/60 border border-border/60 flex items-center justify-center">
+                <FlameIcon className="text-primary" />
+              </div>
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="p-4 bg-card/50 border-border/50">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-xs uppercase font-bold text-primary tracking-wider">Weekly Volume</p>
+                  <h3 className="text-lg font-bold text-white">{weeklyMinutes} Min</h3>
+                  <p className="text-xs text-muted-foreground">Last 7 days</p>
+                </div>
+                <div className="px-3 py-1 rounded-full bg-secondary/40 text-xs font-bold uppercase text-gray-200">
+                  {weeklySessions.length} Sessions
+                </div>
+              </div>
+              <ChartContainer
+                config={{ minutes: { label: "Minutes", color: "hsl(var(--primary))" } }}
+                className="h-32"
+              >
+                <BarChart data={weeklyVolumeData} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/50" />
+                  <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} />
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                  <Bar dataKey="minutes" fill="var(--color-minutes)" radius={[6, 6, 6, 6]} />
+                </BarChart>
+              </ChartContainer>
+            </Card>
+
+            <Card className="p-4 bg-card/50 border-border/50">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-xs uppercase font-bold text-primary tracking-wider">RPE Trend</p>
+                  <h3 className="text-lg font-bold text-white">
+                    {averageRpe !== null ? averageRpe.toFixed(1) : "-"} Avg RPE
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {rpeTrendData.length} recent sessions • {rpeChange > 0 ? "Increasing" : rpeChange < 0 ? "Easing" : "Stable"}
+                  </p>
+                </div>
+                <div className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-bold uppercase text-gray-200">
+                  Difficulty: {rpeChange > 0 ? "Climbing" : rpeChange < 0 ? "Dropping" : "Steady"}
+                </div>
+              </div>
+              <ChartContainer
+                config={{ rpe: { label: "RPE", color: "hsl(var(--primary))" } }}
+                className="h-32"
+              >
+                <LineChart data={rpeTrendData} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/50" />
+                  <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent labelKey="date" />} />
+                  <Line
+                    type="monotone"
+                    dataKey="rpe"
+                    stroke="var(--color-rpe)"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: "var(--color-rpe)" }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ChartContainer>
+            </Card>
+          </div>
+        </div>
+
         {/* Recent Activity Preview */}
-        {history.length > 0 && (
+        {historyData.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl text-white">Recent Activity</h3>
               <Link href="/profile">
                 <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-primary">
-                  VIEW ALL
+                  View Details
                 </Button>
               </Link>
             </div>
-            
+
             <div className="space-y-3">
-              {history.slice(0, 2).map((session: any) => (
+              {recentActivity.map((session) => (
                 <Card key={session.id} className="p-4 bg-card/30 border-border/50 flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="h-12 w-12 rounded bg-secondary/50 flex items-center justify-center font-display text-xl font-bold text-muted-foreground">
@@ -225,6 +399,11 @@ export default function Home() {
                       <p className="text-xs text-muted-foreground">
                         {session.framework} • {new Date(session.createdAt).toLocaleDateString()} • {session.difficultyTag}
                       </p>
+                      {session.perceivedExertion ? (
+                        <p className="text-[11px] text-gray-400">RPE {session.perceivedExertion} • {session.durationMinutes} min</p>
+                      ) : (
+                        <p className="text-[11px] text-gray-400">{session.durationMinutes} min completed</p>
+                      )}
                     </div>
                   </div>
                   <ArrowRight className="text-muted-foreground w-5 h-5" />
