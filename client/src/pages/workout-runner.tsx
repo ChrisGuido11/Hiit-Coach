@@ -14,7 +14,6 @@ export default function WorkoutRunner() {
   const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [isResting, setIsResting] = useState(false); // For Tabata work/rest phases
-  const [completedRounds, setCompletedRounds] = useState(0); // For AMRAP/Circuit tracking
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: workout } = useQuery<GeneratedWorkout>({

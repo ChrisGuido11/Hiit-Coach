@@ -11,6 +11,13 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { GeneratedWorkout } from "@/../../shared/schema";
 
+function getTimeGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning";
+  if (hour < 18) return "Good Afternoon";
+  return "Good Evening";
+}
+
 export default function Home() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -83,7 +90,7 @@ export default function Home() {
         {/* Header */}
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-muted-foreground font-medium uppercase tracking-wider text-sm">Good Morning</p>
+            <p className="text-muted-foreground font-medium uppercase tracking-wider text-sm">{getTimeGreeting()}</p>
             <h1 className="text-4xl font-bold text-white leading-none mt-1">
               READY TO <br/> 
               <span className="text-primary neon-text">SWEAT?</span>
