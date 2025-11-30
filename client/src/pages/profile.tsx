@@ -54,9 +54,11 @@ export default function Profile() {
   const queryClient = useQueryClient();
   const [isEditEquipmentOpen, setIsEditEquipmentOpen] = useState(false);
   const [isEditGoalsOpen, setIsEditGoalsOpen] = useState(false);
+  const [isEditLevelOpen, setIsEditLevelOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState<EquipmentId[]>([]);
   const [editingPrimaryGoal, setEditingPrimaryGoal] = useState<PrimaryGoalId | null>(null);
   const [editingSecondaryGoals, setEditingSecondaryGoals] = useState<PrimaryGoalId[]>([]);
+  const [editingLevel, setEditingLevel] = useState<"Beginner" | "Intermediate" | "Advanced">("Beginner");
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -88,6 +90,7 @@ export default function Profile() {
       primaryGoal?: PrimaryGoalId | null;
       secondaryGoals?: PrimaryGoalId[];
       goalWeights?: Record<PrimaryGoalId, number>;
+      skillScore?: number;
     }) => {
       const res = await fetch("/api/profile", {
         method: "PATCH",
@@ -100,12 +103,14 @@ export default function Profile() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
-      const message = variables.equipment
-        ? "Your equipment preferences have been saved."
-        : "Your training goals have been updated.";
+      let message = "Profile updated.";
+      if (variables.equipment) message = "Your equipment preferences have been saved.";
+      else if (variables.primaryGoal) message = "Your training goals have been updated.";
+      else if (variables.skillScore !== undefined) message = "Your training level has been updated.";
       toast({ title: "Profile Updated", description: message });
       setIsEditEquipmentOpen(false);
       setIsEditGoalsOpen(false);
+      setIsEditLevelOpen(false);
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -205,6 +210,28 @@ export default function Profile() {
     });
   };
 
+  const getLevelSkillScore = (level: "Beginner" | "Intermediate" | "Advanced"): number => {
+    switch (level) {
+      case "Beginner":
+        return 17; // Mid-point of 0-35
+      case "Intermediate":
+        return 53; // Mid-point of 36-70
+      case "Advanced":
+        return 85; // Mid-point of 71-100
+    }
+  };
+
+  const handleEditLevel = () => {
+    const currentLevel = profile?.fitnessLevel || "Beginner";
+    setEditingLevel(currentLevel as "Beginner" | "Intermediate" | "Advanced");
+    setIsEditLevelOpen(true);
+  };
+
+  const handleSaveLevel = () => {
+    const newSkillScore = getLevelSkillScore(editingLevel);
+    updateProfileMutation.mutate({ skillScore: newSkillScore });
+  };
+
   if (authLoading) {
     return (
       <MobileLayout>
@@ -263,9 +290,20 @@ export default function Profile() {
             <h2 className="text-lg font-bold text-white mb-4">Training Profile</h2>
 
             <div className="space-y-4 text-sm">
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Level</span>
-                <span className="font-bold text-white">{profile.fitnessLevel}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-white">{profile.fitnessLevel}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-primary hover:text-primary/80"
+                    onClick={handleEditLevel}
+                    data-testid="button-edit-level"
+                  >
+                    <Edit size={14} />
+                  </Button>
+                </div>
               </div>
 
               {/* Goals Section */}
@@ -360,6 +398,51 @@ export default function Profile() {
                   </Button>
                   <Button
                     onClick={handleSaveEquipment}
+                    disabled={updateProfileMutation.isPending}
+                  >
+                    {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Level Edit Dialog */}
+            <Dialog open={isEditLevelOpen} onOpenChange={setIsEditLevelOpen}>
+              <DialogContent className="max-w-[90vw]">
+                <DialogHeader>
+                  <DialogTitle>Change Training Level</DialogTitle>
+                </DialogHeader>
+                <div className="py-4 space-y-3">
+                  {(["Beginner", "Intermediate", "Advanced"] as const).map((level) => (
+                    <Card
+                      key={level}
+                      className={cn(
+                        "p-4 border-2 cursor-pointer transition-all duration-200",
+                        editingLevel === level && "border-primary bg-primary/10",
+                        editingLevel !== level && "border-border/50 bg-card/50 hover:border-primary/50"
+                      )}
+                      onClick={() => setEditingLevel(level)}
+                      data-testid={`button-level-${level.toLowerCase()}`}
+                    >
+                      <div className="font-bold text-white text-center">{level}</div>
+                      <div className="text-xs text-muted-foreground text-center mt-1">
+                        {level === "Beginner" && "Skill Score: 0-35"}
+                        {level === "Intermediate" && "Skill Score: 36-70"}
+                        {level === "Advanced" && "Skill Score: 71-100"}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditLevelOpen(false)}
+                    disabled={updateProfileMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSaveLevel}
                     disabled={updateProfileMutation.isPending}
                   >
                     {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
