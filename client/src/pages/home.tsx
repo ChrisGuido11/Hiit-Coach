@@ -124,8 +124,11 @@ export default function Home() {
               
               <div>
                 <h2 className="text-3xl font-bold text-white mb-1 uppercase">
-                  {workout.focusLabel} HIIT
+                  {workout.focusLabel}
                 </h2>
+                <p className="text-primary text-sm font-bold mb-4 uppercase tracking-wider">
+                  {workout.framework}
+                </p>
                 <p className="text-gray-300 text-sm mb-4">
                   {workout.durationMinutes} Min • {workout.rounds.length} Exercises • {workout.difficultyTag}
                 </p>
@@ -198,9 +201,9 @@ export default function Home() {
                       {session.durationMinutes}
                     </div>
                     <div>
-                      <h4 className="text-lg leading-none mb-1 capitalize">{session.focusLabel} HIIT</h4>
+                      <h4 className="text-lg leading-none mb-1 capitalize">{session.focusLabel}</h4>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(session.createdAt).toLocaleDateString()} • {session.difficultyTag}
+                        {session.framework} • {new Date(session.createdAt).toLocaleDateString()} • {session.difficultyTag}
                       </p>
                     </div>
                   </div>
