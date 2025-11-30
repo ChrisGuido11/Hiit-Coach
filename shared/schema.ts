@@ -140,3 +140,23 @@ export const insertWorkoutRoundSchema = createInsertSchema(workoutRounds).omit({
 
 export type InsertWorkoutRound = z.infer<typeof insertWorkoutRoundSchema>;
 export type WorkoutRound = typeof workoutRounds.$inferSelect;
+
+// Generated workout type (returned by AI workout generators)
+export interface GeneratedWorkout {
+  framework: WorkoutFramework;
+  durationMinutes: number;
+  difficultyTag: "beginner" | "intermediate" | "advanced";
+  focusLabel: string;
+  rounds: Array<{
+    minuteIndex: number;
+    exerciseName: string;
+    targetMuscleGroup: string;
+    difficulty: string;
+    reps: number;
+  }>;
+  // Framework-specific metadata
+  workSeconds?: number; // For Tabata: work duration per interval
+  restSeconds?: number; // For Tabata/Circuit: rest duration
+  sets?: number; // For Tabata: number of intervals per exercise
+  totalRounds?: number; // For Circuit: number of complete rounds
+}
