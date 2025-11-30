@@ -6,6 +6,7 @@ import { Play, Pause, SkipForward, X, RotateCcw, Settings } from "lucide-react";
 import MobileLayout from "@/components/layout/mobile-layout";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { GeneratedWorkout } from "@/../../shared/schema";
 
 export default function WorkoutRunner() {
   const [, setLocation] = useLocation();
@@ -16,7 +17,7 @@ export default function WorkoutRunner() {
   const [completedRounds, setCompletedRounds] = useState(0); // For AMRAP/Circuit tracking
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: workout } = useQuery({
+  const { data: workout } = useQuery<GeneratedWorkout>({
     queryKey: ["/api/workout/generate"],
   });
 

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import type { GeneratedWorkout } from "@/../../shared/schema";
 
 export default function WorkoutComplete() {
   const [, setLocation] = useLocation();
@@ -15,7 +16,7 @@ export default function WorkoutComplete() {
   const queryClient = useQueryClient();
   const [selectedRPE, setSelectedRPE] = useState<number | null>(null);
 
-  const { data: workout } = useQuery({
+  const { data: workout } = useQuery<GeneratedWorkout>({
     queryKey: ["/api/workout/generate"],
   });
 

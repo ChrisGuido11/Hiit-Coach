@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import type { GeneratedWorkout } from "@/../../shared/schema";
 
 export default function Home() {
   const { user, isLoading: authLoading } = useAuth();
@@ -34,13 +35,13 @@ export default function Home() {
     enabled: !!user,
   });
 
-  const { data: workout, isLoading: workoutLoading, refetch: regenerateWorkout } = useQuery({
+  const { data: workout, isLoading: workoutLoading, refetch: regenerateWorkout } = useQuery<GeneratedWorkout>({
     queryKey: ["/api/workout/generate"],
     enabled: !!profile,
     retry: false,
   });
 
-  const { data: history = [] } = useQuery({
+  const { data: history = [] } = useQuery<any[]>({
     queryKey: ["/api/workout/history"],
     enabled: !!user,
   });
