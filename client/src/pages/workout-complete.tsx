@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Star } from "lucide-react";
+import { CheckCircle2, Share2, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import MobileLayout from "@/components/layout/mobile-layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { GeneratedWorkout } from "@/../../shared/schema";
@@ -15,15 +16,16 @@ export default function WorkoutComplete() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedRPE, setSelectedRPE] = useState<number | null>(null);
+  const [notes, setNotes] = useState("");
 
   const { data: workout } = useQuery<GeneratedWorkout>({
     queryKey: ["/api/workout/generate"],
   });
 
   const saveWorkoutMutation = useMutation({
-    mutationFn: async (rpe: number) => {
+    mutationFn: async ({ rpe, notes: sessionNotes }: { rpe: number; notes?: string }) => {
       if (!workout) throw new Error("No workout data");
-      
+
       const res = await fetch("/api/workout/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -33,6 +35,7 @@ export default function WorkoutComplete() {
           difficultyTag: workout.difficultyTag,
           focusLabel: workout.focusLabel,
           perceivedExertion: rpe,
+          notes: sessionNotes?.trim() || undefined,
           rounds: workout.rounds,
         }),
         credentials: "include",
@@ -53,9 +56,51 @@ export default function WorkoutComplete() {
     },
   });
 
+  const shareSummary = useMemo(() => {
+    if (!workout) return "";
+
+    const roundsSummary = workout.rounds
+      .map(
+        (round) =>
+          `• Min ${round.minuteIndex}: ${round.exerciseName} (${round.reps} reps, ${round.targetMuscleGroup})`,
+      )
+      .join("\n");
+
+    const noteLine = notes.trim() ? `\nNotes: ${notes.trim()}` : "";
+
+    return `Workout Complete!\nFocus: ${workout.focusLabel}\nFramework: ${workout.framework}\nDuration: ${workout.durationMinutes} minutes\nRounds:\n${roundsSummary}${noteLine}`;
+  }, [notes, workout]);
+
   const handleSave = () => {
     if (selectedRPE) {
-      saveWorkoutMutation.mutate(selectedRPE);
+      saveWorkoutMutation.mutate({ rpe: selectedRPE, notes });
+    }
+  };
+
+  const handleShare = async () => {
+    if (!shareSummary) return;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Workout Summary", text: shareSummary });
+        toast({ title: "Shared!", description: "Workout summary shared successfully." });
+        return;
+      }
+
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareSummary);
+        toast({ title: "Copied!", description: "Workout summary copied to clipboard." });
+        return;
+      }
+
+      toast({
+        title: "Sharing unavailable",
+        description: "Clipboard access is not available on this device.",
+        variant: "destructive",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to share right now.";
+      toast({ title: "Share failed", description: message, variant: "destructive" });
     }
   };
 
@@ -96,6 +141,66 @@ export default function WorkoutComplete() {
             <span className="text-3xl font-display font-bold text-white">{workout.durationMinutes * 15}</span>
             <p className="text-xs uppercase text-muted-foreground">Est. Cals</p>
           </Card>
+        </div>
+
+        <Card className="w-full bg-card border-border/50 p-4 space-y-4 text-left">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-xs uppercase text-muted-foreground">Focus</p>
+              <p className="text-lg font-semibold text-white">{workout.focusLabel}</p>
+            </div>
+            <div className="text-right space-y-1">
+              <p className="text-xs uppercase text-muted-foreground">Framework</p>
+              <p className="text-lg font-semibold text-white">{workout.framework}</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs uppercase text-muted-foreground">Round Recap</p>
+            <div className="space-y-2">
+              {workout.rounds.map((round) => (
+                <div
+                  key={`${round.minuteIndex}-${round.exerciseName}`}
+                  className="flex items-start justify-between gap-3 rounded-lg border border-border/40 bg-card/40 p-3"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-white">Minute {round.minuteIndex}</p>
+                    <p className="text-sm text-muted-foreground">{round.exerciseName}</p>
+                  </div>
+                  <div className="text-right text-xs text-muted-foreground space-y-1">
+                    <p className="font-medium text-white">{round.reps} reps</p>
+                    <p className="capitalize">{round.targetMuscleGroup}</p>
+                    <p className="capitalize">{round.difficulty}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        <div className="w-full space-y-3 text-left">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-white">Session Notes (optional)</p>
+              <p className="text-xs text-muted-foreground">Capture how you felt or adjustments you made.</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-primary/50 text-primary"
+              onClick={handleShare}
+              disabled={!shareSummary || saveWorkoutMutation.isPending}
+            >
+              <Share2 className="mr-2 h-4 w-4" /> Share
+            </Button>
+          </div>
+          <Textarea
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="What stood out about this workout?"
+            className="bg-card border-border/50 text-white placeholder:text-muted-foreground"
+            rows={3}
+          />
         </div>
 
         {/* RPE Selection */}
