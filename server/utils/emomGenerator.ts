@@ -13,6 +13,7 @@ import type { EquipmentId } from "@shared/equipment";
 import { getEquipmentRichness, migrateEquipment } from "@shared/equipment";
 import type { PrimaryGoalId } from "@shared/goals";
 import { getPrimaryGoalConfig, getCombinedExerciseBias, migrateLegacyGoal } from "@shared/goals";
+import type { GeneratedWorkout } from "@shared/schema";
 
 interface Exercise {
   name: string;
@@ -129,24 +130,7 @@ const EXERCISES: Exercise[] = [
   { name: "TRX Pike", muscleGroup: "core", difficulty: "advanced", equipment: ["trx"], reps: { beginner: 8, intermediate: 12, advanced: 16 }, categories: { compound: false, cardio: false, plyometric: false, mobility: false } },
 ];
 
-export interface GeneratedWorkout {
-  framework: "EMOM" | "Tabata" | "AMRAP" | "Circuit";
-  durationMinutes: number;
-  difficultyTag: "beginner" | "intermediate" | "advanced";
-  focusLabel: string;
-  rounds: Array<{
-    minuteIndex: number;
-    exerciseName: string;
-    targetMuscleGroup: string;
-    difficulty: string;
-    reps: number;
-  }>;
-  // Framework-specific metadata
-  workSeconds?: number; // For Tabata: work duration per interval
-  restSeconds?: number; // For Tabata/Circuit: rest duration
-  sets?: number; // For Tabata: number of intervals per exercise
-  totalRounds?: number; // For Circuit: number of complete rounds
-}
+// GeneratedWorkout type now imported from @shared/schema
 
 
 /**
