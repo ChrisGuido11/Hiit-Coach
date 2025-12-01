@@ -21,6 +21,7 @@ interface Exercise {
   difficulty: "beginner" | "intermediate" | "advanced";
   equipment: EquipmentId[]; // Typed equipment requirements
   reps: { beginner: number; intermediate: number; advanced: number };
+  isHold?: boolean; // For time-based exercises (measured in seconds, not reps)
   // Category tags for goal-based exercise selection
   categories: {
     compound: boolean;   // Multi-joint compound movements
@@ -45,7 +46,7 @@ const EXERCISES: Exercise[] = [
   { name: "Air Squats", muscleGroup: "legs", difficulty: "beginner", equipment: ["bodyweight"], reps: { beginner: 15, intermediate: 25, advanced: 35 }, categories: { compound: true, cardio: false, plyometric: false, mobility: false } },
   { name: "Push-ups", muscleGroup: "chest", difficulty: "beginner", equipment: ["bodyweight"], reps: { beginner: 10, intermediate: 20, advanced: 30 }, categories: { compound: true, cardio: false, plyometric: false, mobility: false } },
   { name: "Mountain Climbers", muscleGroup: "core", difficulty: "intermediate", equipment: ["bodyweight"], reps: { beginner: 20, intermediate: 30, advanced: 40 }, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
-  { name: "Plank Hold", muscleGroup: "core", difficulty: "beginner", equipment: ["bodyweight"], reps: { beginner: 30, intermediate: 45, advanced: 60 }, categories: { compound: false, cardio: false, plyometric: false, mobility: true } },
+  { name: "Plank Hold", muscleGroup: "core", difficulty: "beginner", equipment: ["bodyweight"], reps: { beginner: 30, intermediate: 45, advanced: 60 }, isHold: true, categories: { compound: false, cardio: false, plyometric: false, mobility: true } },
   { name: "Jumping Jacks", muscleGroup: "cardio", difficulty: "beginner", equipment: ["bodyweight"], reps: { beginner: 20, intermediate: 30, advanced: 40 }, categories: { compound: false, cardio: true, plyometric: true, mobility: false } },
   { name: "Lunges", muscleGroup: "legs", difficulty: "beginner", equipment: ["bodyweight"], reps: { beginner: 10, intermediate: 16, advanced: 24 }, categories: { compound: true, cardio: false, plyometric: false, mobility: false } },
   { name: "High Knees", muscleGroup: "cardio", difficulty: "beginner", equipment: ["bodyweight"], reps: { beginner: 20, intermediate: 30, advanced: 40 }, categories: { compound: false, cardio: true, plyometric: true, mobility: false } },
