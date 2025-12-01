@@ -1,11 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { Play, TrendingUp, Flame, Clock, ArrowRight, RotateCw, Beaker, Flame as FlameIcon } from "lucide-react";
+import { Play, TrendingUp, Flame, Clock, ArrowRight, RotateCw, Beaker, Flame as FlameIcon, Zap } from "lucide-react";
 import MobileLayout from "@/components/layout/mobile-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import type { GeneratedWorkout, Profile as ProfileModel, WorkoutSession } from "@/../../shared/schema";
 import { getQueryFn } from "@/lib/queryClient";
@@ -22,6 +23,7 @@ function getTimeGreeting(): string {
 export default function Home() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -290,7 +292,7 @@ export default function Home() {
 
         {/* Streaks & Weekly Stats */}
         <div className="grid gap-4">
-          <Card className="p-4 bg-card/50 border-border/50">
+          <Card className="p-4 bg-card/50 border-border/50 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setIsStreakModalOpen(true)}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs uppercase font-bold text-primary tracking-wider">Streaks</p>
@@ -307,7 +309,7 @@ export default function Home() {
                   </span>
                 </div>
               </div>
-              <div className="h-12 w-12 rounded-full bg-secondary/60 border border-border/60 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-full bg-secondary/60 border border-border/60 flex items-center justify-center" data-testid="button-streak-modal">
                 <FlameIcon className="text-primary" />
               </div>
             </div>
@@ -413,6 +415,79 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* On Fire Streak Modal */}
+      <Sheet open={isStreakModalOpen} onOpenChange={setIsStreakModalOpen}>
+        <SheetContent side="bottom" className="bg-card border-border/50 sm:max-w-md sm:rounded-t-3xl">
+          <SheetHeader className="mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary/40 to-primary/20 flex items-center justify-center border border-primary/50">
+                <FlameIcon className="text-primary w-8 h-8" />
+              </div>
+              <div>
+                <SheetTitle className="text-3xl font-display text-white">YOU'RE ON FIRE!</SheetTitle>
+                <SheetDescription className="text-primary font-bold mt-1">{currentStreak || 0} Day Streak</SheetDescription>
+              </div>
+            </div>
+          </SheetHeader>
+
+          <div className="space-y-6">
+            {/* Current Streak */}
+            <div className="space-y-2">
+              <p className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Current Streak</p>
+              <div className="grid grid-cols-3 gap-3">
+                <Card className="p-4 bg-primary/10 border-primary/30 text-center">
+                  <div className="text-3xl font-display font-bold text-primary">{currentStreak || 0}</div>
+                  <p className="text-xs text-muted-foreground uppercase mt-1">Days</p>
+                </Card>
+                <Card className="p-4 bg-secondary/40 border-border/50 text-center">
+                  <div className="text-3xl font-display font-bold text-white">{totalWorkouts}</div>
+                  <p className="text-xs text-muted-foreground uppercase mt-1">Workouts</p>
+                </Card>
+                <Card className="p-4 bg-secondary/40 border-border/50 text-center">
+                  <div className="text-3xl font-display font-bold text-white">{totalMinutes}</div>
+                  <p className="text-xs text-muted-foreground uppercase mt-1">Minutes</p>
+                </Card>
+              </div>
+            </div>
+
+            {/* Personal Records */}
+            <div className="space-y-3">
+              <p className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Personal Records</p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/20 border border-border/30">
+                  <div className="flex items-center gap-3">
+                    <Zap className="text-primary w-5 h-5" />
+                    <span className="text-sm font-bold">Best Streak</span>
+                  </div>
+                  <span className="text-lg font-display font-bold text-primary">{bestStreak || 0}d</span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/20 border border-border/30">
+                  <div className="flex items-center gap-3">
+                    <Zap className="text-primary w-5 h-5" />
+                    <span className="text-sm font-bold">Next Badge</span>
+                  </div>
+                  <span className="text-lg font-display font-bold text-primary">{streakNextBadge}d</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Motivation */}
+            <div className="p-4 rounded-lg bg-gradient-to-r from-primary/20 to-primary/5 border border-primary/30">
+              <p className="text-sm text-white text-center leading-relaxed font-medium">
+                {currentStreak >= 7 ? "🔥 You're crushing it! Keep the momentum going!" : currentStreak >= 3 ? "💪 Great work! You're building consistency!" : "🚀 Keep showing up - streaks build champions!"}
+              </p>
+            </div>
+
+            <Button
+              className="w-full bg-primary text-black hover:bg-primary/90 font-bold uppercase tracking-wider"
+              onClick={() => setIsStreakModalOpen(false)}
+            >
+              Keep Going
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </MobileLayout>
   );
 }
