@@ -153,6 +153,7 @@ export interface GeneratedWorkout {
     targetMuscleGroup: string;
     difficulty: string;
     reps: number;
+    isHold?: boolean;
   }>;
   // Framework-specific metadata
   workSeconds?: number; // For Tabata: work duration per interval
