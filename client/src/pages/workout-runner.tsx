@@ -47,6 +47,10 @@ export default function WorkoutRunner() {
     queryKey: ["/api/workout/generate"],
   });
 
+  const goToWorkoutComplete = () => {
+    setLocation("/workout/complete", { state: workout });
+  };
+
   const ensureAudioContext = () => {
     if (typeof window === "undefined") return null;
 
@@ -220,7 +224,7 @@ export default function WorkoutRunner() {
         setSecondsLeft(60);
         triggerIntervalCues("Next minute");
       } else {
-        setLocation("/workout/complete");
+        goToWorkoutComplete();
       }
     } else if (workout.framework === "Tabata") {
       // Tabata: Alternate between work and rest
@@ -232,7 +236,7 @@ export default function WorkoutRunner() {
           setIsResting(false);
           triggerIntervalCues("Work interval");
         } else {
-          setLocation("/workout/complete");
+          goToWorkoutComplete();
         }
       } else {
         // Work complete, start rest
@@ -243,7 +247,7 @@ export default function WorkoutRunner() {
             setIsResting(false);
             triggerIntervalCues("Skipping rest");
           } else {
-            setLocation("/workout/complete");
+            goToWorkoutComplete();
           }
         } else {
           setSecondsLeft(workout.restSeconds || 10);
@@ -253,7 +257,7 @@ export default function WorkoutRunner() {
       }
     } else if (workout.framework === "AMRAP") {
       // AMRAP: Time expired, workout complete
-      setLocation("/workout/complete");
+      goToWorkoutComplete();
     } else if (workout.framework === "Circuit") {
       // Circuit: Move to next exercise or rest between rounds
       if (currentRoundIndex < workout.rounds.length - 1) {
@@ -278,7 +282,7 @@ export default function WorkoutRunner() {
           triggerIntervalCues("Next exercise");
         }
       } else {
-        setLocation("/workout/complete");
+        goToWorkoutComplete();
       }
     }
   };
@@ -552,7 +556,7 @@ export default function WorkoutRunner() {
               onClick={() => {
                 if (workout.framework === "AMRAP") {
                   // For AMRAP, just complete the workout
-                  setLocation("/workout/complete");
+                  goToWorkoutComplete();
                 } else if (currentRoundIndex < workout.rounds.length - 1) {
                   setCurrentRoundIndex(i => i + 1);
                   setIsResting(false);
@@ -568,7 +572,7 @@ export default function WorkoutRunner() {
                     setSecondsLeft(45);
                   }
                 } else {
-                  setLocation("/workout/complete");
+                  goToWorkoutComplete();
                 }
               }}
               data-testid="button-skip"
