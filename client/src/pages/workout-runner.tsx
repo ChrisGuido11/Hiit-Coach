@@ -222,9 +222,10 @@ export default function WorkoutRunner() {
     if (workout.framework === "EMOM") {
       // EMOM: Move to next minute
       if (currentRoundIndex < workout.rounds.length - 1) {
+        const nextRound = workout.rounds[currentRoundIndex + 1];
         setCurrentRoundIndex(i => i + 1);
         setSecondsLeft(60);
-        triggerIntervalCues("Next minute");
+        triggerIntervalCues(nextRound.exerciseName);
       } else {
         goToWorkoutComplete();
       }
@@ -233,10 +234,11 @@ export default function WorkoutRunner() {
       if (isResting) {
         // Rest complete, move to next interval
         if (currentRoundIndex < workout.rounds.length - 1) {
+          const nextRound = workout.rounds[currentRoundIndex + 1];
           setCurrentRoundIndex(i => i + 1);
           setSecondsLeft(workout.workSeconds || 20);
           setIsResting(false);
-          triggerIntervalCues("Work interval");
+          triggerIntervalCues(nextRound.exerciseName);
         } else {
           goToWorkoutComplete();
         }
@@ -244,10 +246,11 @@ export default function WorkoutRunner() {
         // Work complete, start rest
         if (settings.restAutoSkip) {
           if (currentRoundIndex < workout.rounds.length - 1) {
+            const nextRound = workout.rounds[currentRoundIndex + 1];
             setCurrentRoundIndex(i => i + 1);
             setSecondsLeft(workout.workSeconds || 20);
             setIsResting(false);
-            triggerIntervalCues("Skipping rest");
+            triggerIntervalCues(`Skipping rest, ${nextRound.exerciseName}`);
           } else {
             goToWorkoutComplete();
           }
@@ -263,6 +266,7 @@ export default function WorkoutRunner() {
     } else if (workout.framework === "Circuit") {
       // Circuit: Move to next exercise or rest between rounds
       if (currentRoundIndex < workout.rounds.length - 1) {
+        const nextRound = workout.rounds[currentRoundIndex + 1];
         setCurrentRoundIndex(i => i + 1);
 
         // Check if we completed a full circuit (for rest periods)
@@ -281,7 +285,7 @@ export default function WorkoutRunner() {
         } else {
           setSecondsLeft(45);
           setIsResting(false);
-          triggerIntervalCues("Next exercise");
+          triggerIntervalCues(nextRound.exerciseName);
         }
       } else {
         goToWorkoutComplete();
