@@ -165,6 +165,19 @@ export default function WorkoutComplete() {
           </Card>
         </div>
 
+        <div className="w-full rounded-xl border border-primary/40 bg-primary/5 p-4 text-left flex gap-3 items-start">
+          <div className="p-2 rounded-full bg-primary/20 border border-primary/40">
+            <Brain className="h-5 w-5 text-primary" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-white">Help the coach learn</p>
+            <p className="text-sm text-muted-foreground">
+              Logging your workout teaches the AI what works for you so upcoming sessions get
+              smarter and more personalized.
+            </p>
+          </div>
+        </div>
+
         {/* RPE Selection */}
         <div className="w-full space-y-4">
           <div className="text-center">
@@ -279,19 +292,6 @@ export default function WorkoutComplete() {
             className="bg-card border-border/50 text-white placeholder:text-muted-foreground"
             rows={3}
           />
-        </div>
-
-        <div className="w-full rounded-xl border border-primary/40 bg-primary/5 p-4 text-left flex gap-3 items-start">
-          <div className="p-2 rounded-full bg-primary/20 border border-primary/40">
-            <Brain className="h-5 w-5 text-primary" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-white">Help the coach learn</p>
-            <p className="text-sm text-muted-foreground">
-              Logging your workout teaches the AI what works for you so upcoming sessions get
-              smarter and more personalized.
-            </p>
-          </div>
         </div>
 
         <Button
