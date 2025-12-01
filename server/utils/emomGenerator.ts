@@ -102,19 +102,19 @@ const EXERCISES: Exercise[] = [
   { name: "Single Unders", muscleGroup: "cardio", difficulty: "beginner", equipment: ["jump_rope"], reps: { beginner: 40, intermediate: 60, advanced: 80 }, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
 
   // Treadmill (2 exercises)
-  { name: "Treadmill Sprint Intervals", muscleGroup: "cardio", difficulty: "intermediate", equipment: ["treadmill"], reps: { beginner: 30, intermediate: 45, advanced: 60 }, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
-  { name: "Treadmill Incline Run", muscleGroup: "cardio", difficulty: "intermediate", equipment: ["treadmill"], reps: { beginner: 45, intermediate: 60, advanced: 75 }, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
+  { name: "Treadmill Sprint Intervals", muscleGroup: "cardio", difficulty: "intermediate", equipment: ["treadmill"], reps: { beginner: 30, intermediate: 45, advanced: 60 }, isHold: true, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
+  { name: "Treadmill Incline Run", muscleGroup: "cardio", difficulty: "intermediate", equipment: ["treadmill"], reps: { beginner: 45, intermediate: 60, advanced: 75 }, isHold: true, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
 
   // Bike (2 exercises)
-  { name: "Bike Sprint Intervals", muscleGroup: "cardio", difficulty: "intermediate", equipment: ["bike"], reps: { beginner: 30, intermediate: 45, advanced: 60 }, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
-  { name: "Bike Hill Climbs", muscleGroup: "cardio", difficulty: "intermediate", equipment: ["bike"], reps: { beginner: 45, intermediate: 60, advanced: 75 }, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
+  { name: "Bike Sprint Intervals", muscleGroup: "cardio", difficulty: "intermediate", equipment: ["bike"], reps: { beginner: 30, intermediate: 45, advanced: 60 }, isHold: true, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
+  { name: "Bike Hill Climbs", muscleGroup: "cardio", difficulty: "intermediate", equipment: ["bike"], reps: { beginner: 45, intermediate: 60, advanced: 75 }, isHold: true, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
 
   // Rower (2 exercises)
-  { name: "Rowing Sprint Intervals", muscleGroup: "cardio", difficulty: "intermediate", equipment: ["rower"], reps: { beginner: 30, intermediate: 45, advanced: 60 }, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
-  { name: "Rowing 500m", muscleGroup: "cardio", difficulty: "intermediate", equipment: ["rower"], reps: { beginner: 120, intermediate: 110, advanced: 100 }, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
+  { name: "Rowing Sprint Intervals", muscleGroup: "cardio", difficulty: "intermediate", equipment: ["rower"], reps: { beginner: 30, intermediate: 45, advanced: 60 }, isHold: true, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
+  { name: "Rowing 500m", muscleGroup: "cardio", difficulty: "intermediate", equipment: ["rower"], reps: { beginner: 120, intermediate: 110, advanced: 100 }, isHold: true, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
 
   // Elliptical (1 exercise)
-  { name: "Elliptical Sprint Intervals", muscleGroup: "cardio", difficulty: "beginner", equipment: ["elliptical"], reps: { beginner: 30, intermediate: 45, advanced: 60 }, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
+  { name: "Elliptical Sprint Intervals", muscleGroup: "cardio", difficulty: "beginner", equipment: ["elliptical"], reps: { beginner: 30, intermediate: 45, advanced: 60 }, isHold: true, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
 
   // Sliders (3 exercises)
   { name: "Slider Mountain Climbers", muscleGroup: "core", difficulty: "intermediate", equipment: ["sliders"], reps: { beginner: 20, intermediate: 30, advanced: 40 }, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
@@ -339,6 +339,7 @@ export function generateEMOMWorkout(
       targetMuscleGroup: exercise.muscleGroup,
       difficulty: exercise.difficulty,
       reps: exercise.reps[difficultyTag],
+      isHold: exercise.isHold || false,
     });
 
     // Update tracking
@@ -466,6 +467,7 @@ export function generateTabataWorkout(
         targetMuscleGroup: exercise.muscleGroup,
         difficulty: exercise.difficulty,
         reps: Math.ceil(exercise.reps[difficultyTag] * 0.4), // Suggested reps per work interval
+        isHold: exercise.isHold || false,
       });
     }
   }
@@ -593,6 +595,7 @@ export function generateAMRAPWorkout(
       targetMuscleGroup: exercise.muscleGroup,
       difficulty: exercise.difficulty,
       reps: exercise.reps[difficultyTag],
+      isHold: exercise.isHold || false,
     });
   }
 
@@ -717,6 +720,7 @@ export function generateCircuitWorkout(
         targetMuscleGroup: exercise.muscleGroup,
         difficulty: exercise.difficulty,
         reps: exercise.reps[difficultyTag],
+        isHold: exercise.isHold || false,
       });
     }
   }
