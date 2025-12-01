@@ -92,7 +92,6 @@ export const workoutSessions = pgTable("workout_sessions", {
   difficultyTag: text("difficulty_tag").notNull(), // "beginner", "intermediate", "advanced"
   focusLabel: text("focus_label").notNull(), // "cardio", "strength", "metcon"
   perceivedExertion: integer("perceived_exertion"), // 1-5 RPE
-  notes: text("notes"),
   completed: boolean("completed").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
