@@ -580,6 +580,7 @@ export default function WorkoutRunner() {
                   // For AMRAP, just complete the workout
                   goToWorkoutComplete();
                 } else if (currentRoundIndex < workout.rounds.length - 1) {
+                  const nextRound = workout.rounds[currentRoundIndex + 1];
                   setCurrentRoundIndex(i => i + 1);
                   setIsResting(false);
                   setIsPrestartCountdown(false);
@@ -593,6 +594,9 @@ export default function WorkoutRunner() {
                   } else if (workout.framework === "Circuit") {
                     setSecondsLeft(45);
                   }
+                  
+                  // Announce the next exercise
+                  triggerIntervalCues(`${nextRound.exerciseName}, ${nextRound.reps} reps`);
                 } else {
                   goToWorkoutComplete();
                 }
