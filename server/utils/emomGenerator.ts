@@ -22,6 +22,7 @@ interface Exercise {
   equipment: EquipmentId[]; // Typed equipment requirements
   reps: { beginner: number; intermediate: number; advanced: number };
   isHold?: boolean; // For time-based exercises (measured in seconds, not reps)
+  alternatesSides?: boolean; // For exercises that alternate sides (lunges, etc.) - reps are per side
   // Category tags for goal-based exercise selection
   categories: {
     compound: boolean;   // Multi-joint compound movements
@@ -48,7 +49,7 @@ const EXERCISES: Exercise[] = [
   { name: "Mountain Climbers", muscleGroup: "core", difficulty: "intermediate", equipment: ["bodyweight"], reps: { beginner: 20, intermediate: 30, advanced: 40 }, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
   { name: "Plank Hold", muscleGroup: "core", difficulty: "beginner", equipment: ["bodyweight"], reps: { beginner: 30, intermediate: 45, advanced: 60 }, isHold: true, categories: { compound: false, cardio: false, plyometric: false, mobility: true } },
   { name: "Jumping Jacks", muscleGroup: "cardio", difficulty: "beginner", equipment: ["bodyweight"], reps: { beginner: 20, intermediate: 30, advanced: 40 }, categories: { compound: false, cardio: true, plyometric: true, mobility: false } },
-  { name: "Lunges", muscleGroup: "legs", difficulty: "beginner", equipment: ["bodyweight"], reps: { beginner: 10, intermediate: 16, advanced: 24 }, categories: { compound: true, cardio: false, plyometric: false, mobility: false } },
+  { name: "Lunges", muscleGroup: "legs", difficulty: "beginner", equipment: ["bodyweight"], reps: { beginner: 12, intermediate: 16, advanced: 24 }, alternatesSides: true, categories: { compound: true, cardio: false, plyometric: false, mobility: false } },
   { name: "High Knees", muscleGroup: "cardio", difficulty: "beginner", equipment: ["bodyweight"], reps: { beginner: 20, intermediate: 30, advanced: 40 }, categories: { compound: false, cardio: true, plyometric: true, mobility: false } },
   { name: "Squat Jumps", muscleGroup: "legs", difficulty: "intermediate", equipment: ["bodyweight"], reps: { beginner: 8, intermediate: 12, advanced: 16 }, categories: { compound: true, cardio: false, plyometric: true, mobility: false } },
 
@@ -58,7 +59,7 @@ const EXERCISES: Exercise[] = [
   { name: "Dumbbell Rows", muscleGroup: "back", difficulty: "intermediate", equipment: ["dumbbells"], reps: { beginner: 8, intermediate: 12, advanced: 16 }, categories: { compound: true, cardio: false, plyometric: false, mobility: false } },
   { name: "Dumbbell Snatches", muscleGroup: "full-body", difficulty: "advanced", equipment: ["dumbbells"], reps: { beginner: 6, intermediate: 10, advanced: 14 }, categories: { compound: true, cardio: false, plyometric: true, mobility: false } },
   { name: "Dumbbell Shoulder Press", muscleGroup: "shoulders", difficulty: "intermediate", equipment: ["dumbbells"], reps: { beginner: 8, intermediate: 12, advanced: 16 }, categories: { compound: false, cardio: false, plyometric: false, mobility: false } },
-  { name: "Dumbbell Lunges", muscleGroup: "legs", difficulty: "intermediate", equipment: ["dumbbells"], reps: { beginner: 8, intermediate: 12, advanced: 16 }, categories: { compound: true, cardio: false, plyometric: false, mobility: false } },
+  { name: "Dumbbell Lunges", muscleGroup: "legs", difficulty: "intermediate", equipment: ["dumbbells"], reps: { beginner: 8, intermediate: 12, advanced: 16 }, alternatesSides: true, categories: { compound: true, cardio: false, plyometric: false, mobility: false } },
 
   // Kettlebells (5 exercises)
   { name: "Kettlebell Swings", muscleGroup: "posterior-chain", difficulty: "intermediate", equipment: ["kettlebell"], reps: { beginner: 12, intermediate: 20, advanced: 30 }, categories: { compound: true, cardio: true, plyometric: true, mobility: false } },
@@ -119,12 +120,12 @@ const EXERCISES: Exercise[] = [
   // Sliders (3 exercises)
   { name: "Slider Mountain Climbers", muscleGroup: "core", difficulty: "intermediate", equipment: ["sliders"], reps: { beginner: 20, intermediate: 30, advanced: 40 }, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
   { name: "Slider Pike", muscleGroup: "core", difficulty: "advanced", equipment: ["sliders"], reps: { beginner: 8, intermediate: 12, advanced: 16 }, categories: { compound: false, cardio: false, plyometric: false, mobility: false } },
-  { name: "Slider Lunges", muscleGroup: "legs", difficulty: "intermediate", equipment: ["sliders"], reps: { beginner: 10, intermediate: 15, advanced: 20 }, categories: { compound: true, cardio: false, plyometric: false, mobility: false } },
+  { name: "Slider Lunges", muscleGroup: "legs", difficulty: "intermediate", equipment: ["sliders"], reps: { beginner: 10, intermediate: 16, advanced: 20 }, alternatesSides: true, categories: { compound: true, cardio: false, plyometric: false, mobility: false } },
 
   // Step/Box (3 exercises)
   { name: "Box Jumps", muscleGroup: "legs", difficulty: "intermediate", equipment: ["step_box"], reps: { beginner: 8, intermediate: 12, advanced: 16 }, categories: { compound: false, cardio: false, plyometric: true, mobility: false } },
-  { name: "Box Step-ups", muscleGroup: "legs", difficulty: "beginner", equipment: ["step_box"], reps: { beginner: 10, intermediate: 16, advanced: 24 }, categories: { compound: true, cardio: false, plyometric: false, mobility: false } },
-  { name: "Lateral Box Step-overs", muscleGroup: "legs", difficulty: "intermediate", equipment: ["step_box"], reps: { beginner: 10, intermediate: 15, advanced: 20 }, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
+  { name: "Box Step-ups", muscleGroup: "legs", difficulty: "beginner", equipment: ["step_box"], reps: { beginner: 10, intermediate: 16, advanced: 24 }, alternatesSides: true, categories: { compound: true, cardio: false, plyometric: false, mobility: false } },
+  { name: "Lateral Box Step-overs", muscleGroup: "legs", difficulty: "intermediate", equipment: ["step_box"], reps: { beginner: 10, intermediate: 16, advanced: 20 }, alternatesSides: true, categories: { compound: false, cardio: true, plyometric: false, mobility: false } },
 
   // TRX/Suspension (2 exercises)
   { name: "TRX Rows", muscleGroup: "back", difficulty: "intermediate", equipment: ["trx"], reps: { beginner: 10, intermediate: 15, advanced: 20 }, categories: { compound: true, cardio: false, plyometric: false, mobility: false } },
@@ -340,6 +341,7 @@ export function generateEMOMWorkout(
       difficulty: exercise.difficulty,
       reps: exercise.reps[difficultyTag],
       isHold: exercise.isHold || false,
+      alternatesSides: exercise.alternatesSides || false,
     });
 
     // Update tracking
@@ -468,6 +470,7 @@ export function generateTabataWorkout(
         difficulty: exercise.difficulty,
         reps: Math.ceil(exercise.reps[difficultyTag] * 0.4), // Suggested reps per work interval
         isHold: exercise.isHold || false,
+        alternatesSides: exercise.alternatesSides || false,
       });
     }
   }
@@ -596,6 +599,7 @@ export function generateAMRAPWorkout(
       difficulty: exercise.difficulty,
       reps: exercise.reps[difficultyTag],
       isHold: exercise.isHold || false,
+      alternatesSides: exercise.alternatesSides || false,
     });
   }
 
@@ -721,6 +725,7 @@ export function generateCircuitWorkout(
         difficulty: exercise.difficulty,
         reps: exercise.reps[difficultyTag],
         isHold: exercise.isHold || false,
+        alternatesSides: exercise.alternatesSides || false,
       });
     }
   }

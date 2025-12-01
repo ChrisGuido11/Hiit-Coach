@@ -212,7 +212,14 @@ export default function WorkoutRunner() {
       // Small delay to ensure prestart countdown has fully finished
       const announceTimer = setTimeout(() => {
         const currentRound = workout.rounds[0];
-        const repsText = (currentRound as any).isHold ? `${currentRound.reps} seconds` : `${currentRound.reps} reps`;
+        let repsText = "";
+        if ((currentRound as any).isHold) {
+          repsText = `${currentRound.reps} seconds`;
+        } else if ((currentRound as any).alternatesSides) {
+          repsText = `${currentRound.reps} reps, ${currentRound.reps / 2} each leg`;
+        } else {
+          repsText = `${currentRound.reps} reps`;
+        }
         triggerIntervalCues(`${currentRound.exerciseName}, ${repsText}`);
         hasAnnouncedFirstRoundRef.current = true;
       }, 100);
@@ -246,7 +253,14 @@ export default function WorkoutRunner() {
         const nextRound = workout.rounds[currentRoundIndex + 1];
         setCurrentRoundIndex(i => i + 1);
         setSecondsLeft(60);
-        const repsText = (nextRound as any).isHold ? `${nextRound.reps} seconds` : `${nextRound.reps} reps`;
+        let repsText = "";
+        if ((nextRound as any).isHold) {
+          repsText = `${nextRound.reps} seconds`;
+        } else if ((nextRound as any).alternatesSides) {
+          repsText = `${nextRound.reps} reps, ${nextRound.reps / 2} each leg`;
+        } else {
+          repsText = `${nextRound.reps} reps`;
+        }
         triggerIntervalCues(`${nextRound.exerciseName}, ${repsText}`);
       } else {
         goToWorkoutComplete();
@@ -272,7 +286,14 @@ export default function WorkoutRunner() {
             setCurrentRoundIndex(i => i + 1);
             setSecondsLeft(workout.workSeconds || 20);
             setIsResting(false);
-            const repsText = (nextRound as any).isHold ? `${nextRound.reps} seconds` : `${nextRound.reps} reps`;
+            let repsText = "";
+            if ((nextRound as any).isHold) {
+              repsText = `${nextRound.reps} seconds`;
+            } else if ((nextRound as any).alternatesSides) {
+              repsText = `${nextRound.reps} reps, ${nextRound.reps / 2} each leg`;
+            } else {
+              repsText = `${nextRound.reps} reps`;
+            }
             triggerIntervalCues(`Skipping rest, ${nextRound.exerciseName}, ${repsText}`);
           } else {
             goToWorkoutComplete();
@@ -308,7 +329,14 @@ export default function WorkoutRunner() {
         } else {
           setSecondsLeft(45);
           setIsResting(false);
-          const repsText = (nextRound as any).isHold ? `${nextRound.reps} seconds` : `${nextRound.reps} reps`;
+          let repsText = "";
+          if ((nextRound as any).isHold) {
+            repsText = `${nextRound.reps} seconds`;
+          } else if ((nextRound as any).alternatesSides) {
+            repsText = `${nextRound.reps} reps, ${nextRound.reps / 2} each leg`;
+          } else {
+            repsText = `${nextRound.reps} reps`;
+          }
           triggerIntervalCues(`${nextRound.exerciseName}, ${repsText}`);
         }
       } else {
@@ -508,7 +536,7 @@ export default function WorkoutRunner() {
                   </p>
                   {currentExercise.reps ? (
                     <p className="text-[11px] text-muted-foreground mt-1">
-                      Target ~{currentExercise.reps} {(currentExercise as any).isHold ? "seconds" : "reps"}
+                      Target ~{currentExercise.reps} {(currentExercise as any).isHold ? "seconds" : (currentExercise as any).alternatesSides ? `reps, ${currentExercise.reps / 2} each leg` : "reps"}
                     </p>
                   ) : null}
                 </>
@@ -518,7 +546,7 @@ export default function WorkoutRunner() {
                     {currentExercise.reps}
                   </span>
                   <p className="text-muted-foreground uppercase text-xs font-bold tracking-wider">
-                    {(currentExercise as any).isHold ? "Seconds" : "Reps"}
+                    {(currentExercise as any).isHold ? "Seconds" : (currentExercise as any).alternatesSides ? `Reps (${currentExercise.reps / 2}/leg)` : "Reps"}
                   </p>
                 </>
               )}
@@ -538,7 +566,7 @@ export default function WorkoutRunner() {
               <span className="font-display text-xl text-muted-foreground">
                 {workout.framework === "Tabata"
                   ? `${workout.workSeconds ?? 20}s`
-                  : (nextExercise as any).isHold ? `${nextExercise.reps}s` : `${nextExercise.reps} reps`}
+                  : (nextExercise as any).isHold ? `${nextExercise.reps}s` : (nextExercise as any).alternatesSides ? `${nextExercise.reps}r (${nextExercise.reps / 2}/leg)` : `${nextExercise.reps} reps`}
               </span>
             )}
           </div>

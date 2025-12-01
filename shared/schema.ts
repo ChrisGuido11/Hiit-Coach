@@ -154,6 +154,7 @@ export interface GeneratedWorkout {
     difficulty: string;
     reps: number;
     isHold?: boolean;
+    alternatesSides?: boolean;
   }>;
   // Framework-specific metadata
   workSeconds?: number; // For Tabata: work duration per interval
