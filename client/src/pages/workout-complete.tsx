@@ -17,6 +17,7 @@ export default function WorkoutComplete() {
   const queryClient = useQueryClient();
   const [selectedRPE, setSelectedRPE] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
+  const [roundsExpanded, setRoundsExpanded] = useState(false);
 
   const { data: workout } = useQuery<GeneratedWorkout>({
     queryKey: ["/api/workout/generate"],
@@ -218,9 +219,19 @@ export default function WorkoutComplete() {
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs uppercase text-muted-foreground">Round Recap</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs uppercase text-muted-foreground">Round Recap</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-3 text-xs text-primary hover:text-primary"
+                onClick={() => setRoundsExpanded((previous) => !previous)}
+              >
+                {roundsExpanded ? "Hide details" : "View details"}
+              </Button>
+            </div>
             <div className="space-y-2">
-              {workout.rounds.map((round) => (
+              {(roundsExpanded ? workout.rounds : workout.rounds.slice(0, 2)).map((round) => (
                 <div
                   key={`${round.minuteIndex}-${round.exerciseName}`}
                   className="flex items-start justify-between gap-3 rounded-lg border border-border/40 bg-card/40 p-3"
@@ -236,6 +247,11 @@ export default function WorkoutComplete() {
                   </div>
                 </div>
               ))}
+              {!roundsExpanded && workout.rounds.length > 2 ? (
+                <p className="text-xs text-muted-foreground text-center">
+                  +{workout.rounds.length - 2} more rounds — keep exploring!
+                </p>
+              ) : null}
             </div>
           </div>
         </Card>
