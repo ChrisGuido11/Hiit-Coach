@@ -55,12 +55,13 @@ export default function WorkoutComplete() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/workout/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/workout/generate"] });
+      // Clear the workout cache completely so it doesn't show old workouts
+      queryClient.removeQueries({ queryKey: ["/api/workout/generate"] });
       toast({
         title: "Workout logged!",
         description: "We use your sessions to personalize and improve your plan.",
       });
-      setLocation("/");
+      setTimeout(() => setLocation("/"), 1000);
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
