@@ -1,12 +1,18 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Share2, Star } from "lucide-react";
+import { Brain, CheckCircle2, Share2, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import MobileLayout from "@/components/layout/mobile-layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { GeneratedWorkout } from "@/../../shared/schema";
@@ -41,14 +47,25 @@ export default function WorkoutComplete() {
         credentials: "include",
       });
       
-      if (!res.ok) throw new Error("Failed to save workout");
+      if (!res.ok) {
+        const responseData = await res.json().catch(() => null);
+        const message =
+          (responseData && (responseData.message || responseData.error)) ||
+          "We couldn't log this session. Please try again.";
+
+        throw new Error(message);
+      }
+
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/workout/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
       queryClient.invalidateQueries({ queryKey: ["/api/workout/generate"] });
-      toast({ title: "Workout Saved!", description: "Great job crushing it!" });
+      toast({
+        title: "Workout logged!",
+        description: "We use your sessions to personalize and improve your plan.",
+      });
       setLocation("/");
     },
     onError: (error: Error) => {
@@ -68,7 +85,17 @@ export default function WorkoutComplete() {
 
     const noteLine = notes.trim() ? `\nNotes: ${notes.trim()}` : "";
 
-    return `Workout Complete!\nFocus: ${workout.focusLabel}\nFramework: ${workout.framework}\nDuration: ${workout.durationMinutes} minutes\nRounds:\n${roundsSummary}${noteLine}`;
+    return [
+      "Workout Complete!",
+      `Focus: ${workout.focusLabel}`,
+      `Framework: ${workout.framework}`,
+      `Duration: ${workout.durationMinutes} minutes`,
+      "Rounds:",
+      roundsSummary,
+      noteLine,
+    ]
+      .filter(Boolean)
+      .join("\n");
   }, [notes, workout]);
 
   const handleSave = () => {
@@ -118,8 +145,8 @@ export default function WorkoutComplete() {
 
   return (
     <MobileLayout hideNav>
-      <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-8 bg-black">
-        <motion.div 
+      <div className="min-h-full flex flex-col items-center p-6 pt-6 pb-16 text-center space-y-6 bg-black">
+        <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           className="w-32 h-32 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary neon-border"
@@ -130,6 +157,19 @@ export default function WorkoutComplete() {
         <div>
           <h1 className="text-5xl font-bold text-white mb-2">CRUSHED IT!</h1>
           <p className="text-xl text-muted-foreground">Workout Complete</p>
+        </div>
+
+        <div className="w-full rounded-xl border border-primary/40 bg-primary/5 p-4 text-left flex gap-3 items-start">
+          <div className="p-2 rounded-full bg-primary/20 border border-primary/40">
+            <Brain className="h-5 w-5 text-primary" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-white">Help the coach learn</p>
+            <p className="text-sm text-muted-foreground">
+              Logging your workout teaches the AI what works for you so upcoming sessions get
+              smarter and more personalized.
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4 w-full">
@@ -155,27 +195,36 @@ export default function WorkoutComplete() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <p className="text-xs uppercase text-muted-foreground">Round Recap</p>
-            <div className="space-y-2">
-              {workout.rounds.map((round) => (
-                <div
-                  key={`${round.minuteIndex}-${round.exerciseName}`}
-                  className="flex items-start justify-between gap-3 rounded-lg border border-border/40 bg-card/40 p-3"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-white">Minute {round.minuteIndex}</p>
-                    <p className="text-sm text-muted-foreground">{round.exerciseName}</p>
-                  </div>
-                  <div className="text-right text-xs text-muted-foreground space-y-1">
-                    <p className="font-medium text-white">{round.reps} reps</p>
-                    <p className="capitalize">{round.targetMuscleGroup}</p>
-                    <p className="capitalize">{round.difficulty}</p>
-                  </div>
+          <Accordion type="single" collapsible>
+            <AccordionItem value="round-recap" className="border-border/40">
+              <AccordionTrigger className="text-left">
+                <div className="flex items-center justify-between w-full pr-2">
+                  <p className="text-xs uppercase text-muted-foreground">Round Recap</p>
+                  <p className="text-[11px] text-muted-foreground uppercase">
+                    {workout.rounds.length} rounds
+                  </p>
                 </div>
-              ))}
-            </div>
-          </div>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-2 pt-2">
+                {workout.rounds.map((round) => (
+                  <div
+                    key={`${round.minuteIndex}-${round.exerciseName}`}
+                    className="flex items-start justify-between gap-3 rounded-lg border border-border/40 bg-card/40 p-3"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-white">Minute {round.minuteIndex}</p>
+                      <p className="text-sm text-muted-foreground">{round.exerciseName}</p>
+                    </div>
+                    <div className="text-right text-xs text-muted-foreground space-y-1">
+                      <p className="font-medium text-white">{round.reps} reps</p>
+                      <p className="capitalize">{round.targetMuscleGroup}</p>
+                      <p className="capitalize">{round.difficulty}</p>
+                    </div>
+                  </div>
+                ))}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </Card>
 
         <div className="w-full space-y-3 text-left">
@@ -244,13 +293,13 @@ export default function WorkoutComplete() {
           </div>
         </div>
 
-        <Button 
-          className="w-full h-14 text-lg font-bold uppercase tracking-wider bg-primary text-black hover:bg-primary/90 mt-8"
+        <Button
+          className="w-full h-14 text-lg font-bold uppercase tracking-wider bg-primary text-black hover:bg-primary/90 mt-6"
           onClick={handleSave}
           disabled={!selectedRPE || saveWorkoutMutation.isPending}
           data-testid="button-save"
         >
-          {saveWorkoutMutation.isPending ? "Saving..." : "Save Workout"}
+          {saveWorkoutMutation.isPending ? "Logging..." : "Log Workout"}
         </Button>
       </div>
     </MobileLayout>
