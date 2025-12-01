@@ -530,9 +530,21 @@ export default function WorkoutRunner() {
           <div className="w-12 h-1 bg-border rounded-full mx-auto mb-6" />
           
           <div className="flex justify-between items-end mb-6">
-            <div>
-              <p className="text-muted-foreground uppercase text-xs font-bold tracking-wider mb-1">Current Move</p>
-              <h2 className="text-4xl font-display font-bold text-white uppercase">{currentExercise.exerciseName}</h2>
+            <div className="flex items-end gap-3">
+              <div>
+                <p className="text-muted-foreground uppercase text-xs font-bold tracking-wider mb-1">Current Move</p>
+                <h2 className="text-4xl font-display font-bold text-white uppercase">{currentExercise.exerciseName}</h2>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 mb-2 border-border/50 hover:bg-secondary/50 hover:text-white"
+                onClick={() => setIsLessonsOpen(true)}
+                data-testid="button-lessons"
+                title="View lesson video"
+              >
+                <BookOpen size={18} />
+              </Button>
             </div>
             <div className="text-right">
               {workout.framework === "Tabata" ? (
@@ -581,16 +593,7 @@ export default function WorkoutRunner() {
           </div>
 
           {/* Controls */}
-          <div className="grid grid-cols-4 gap-3">
-            <Button
-              variant="outline"
-              className="h-14 border-border/50 hover:bg-secondary/50 hover:text-white"
-              onClick={() => setIsLessonsOpen(true)}
-              data-testid="button-lessons"
-            >
-              <BookOpen size={20} />
-            </Button>
-
+          <div className="grid grid-cols-3 gap-4">
             <Button
               variant="outline"
               className="h-14 border-border/50 hover:bg-secondary/50 hover:text-white"
@@ -619,7 +622,7 @@ export default function WorkoutRunner() {
 
             <Button
               className={cn(
-                "h-14 text-lg font-bold uppercase tracking-wider text-black hover:opacity-90 transition-all col-span-2",
+                "h-14 text-lg font-bold uppercase tracking-wider text-black hover:opacity-90 transition-all",
                 isActive ? "bg-white" : "bg-primary neon-border"
               )}
               onClick={toggleTimer}
