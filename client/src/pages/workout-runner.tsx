@@ -34,6 +34,7 @@ export default function WorkoutRunner() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const previousActiveRef = useRef(false);
   const lastBeepSecondRef = useRef<number | null>(null);
+  const hasAnnouncedFirstRoundRef = useRef(false);
   const SETTINGS_KEY = "workout-runner-settings";
   const [settings, setSettings] = useState<RunnerSettings>({
     soundCues: true,
@@ -203,6 +204,16 @@ export default function WorkoutRunner() {
   useEffect(() => {
     lastBeepSecondRef.current = null;
   }, [currentRoundIndex, isResting, settings.restAutoSkip]);
+
+  // Announce first exercise when timer starts
+  useEffect(() => {
+    if (!workout || !isActive || isPrestartCountdown) return;
+    if (!hasAnnouncedFirstRoundRef.current && currentRoundIndex === 0) {
+      const currentRound = workout.rounds[0];
+      triggerIntervalCues(`${currentRound.exerciseName}, ${currentRound.reps} reps`);
+      hasAnnouncedFirstRoundRef.current = true;
+    }
+  }, [isActive, isPrestartCountdown, workout]);
 
   const vibrate = (duration = 150) => {
     if (!settings.intervalVibration || typeof navigator === "undefined") return;
