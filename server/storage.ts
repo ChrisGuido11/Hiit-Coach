@@ -109,21 +109,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getWorkoutSessions(userId: string): Promise<(WorkoutSession & { rounds: WorkoutRound[] })[]> {
-    const sessions = await db
-      .select()
-      .from(workoutSessions)
-      .where(eq(workoutSessions.userId, userId))
-      .orderBy(desc(workoutSessions.createdAt));
+      const sessions = await db
+        .select()
+        .from(workoutSessions)
+        .where(eq(workoutSessions.userId, userId))
+        .orderBy(desc(workoutSessions.createdAt));
 
-    const sessionsWithRounds = await Promise.all(
-      sessions.map(async (session) => {
-        const rounds = await db
-          .select()
-          .from(workoutRounds)
-          .where(eq(workoutRounds.sessionId, session.id));
-        return { ...session, rounds };
-      })
-    );
+      const sessionsWithRounds = await Promise.all(
+        sessions.map(async (session) => {
+          const rounds = await db
+            .select()
+            .from(workoutRounds)
+            .where(eq(workoutRounds.sessionId, session.id))
+            .orderBy(workoutRounds.minuteIndex);
+          return { ...session, rounds };
+        })
+      );
 
     return sessionsWithRounds;
   }

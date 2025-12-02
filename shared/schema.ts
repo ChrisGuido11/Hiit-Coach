@@ -92,6 +92,7 @@ export const workoutSessions = pgTable("workout_sessions", {
   difficultyTag: text("difficulty_tag").notNull(), // "beginner", "intermediate", "advanced"
   focusLabel: text("focus_label").notNull(), // "cardio", "strength", "metcon"
   perceivedExertion: integer("perceived_exertion"), // 1-5 RPE
+  notes: text("notes"),
   completed: boolean("completed").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -125,6 +126,11 @@ export const workoutRounds = pgTable("workout_rounds", {
   targetMuscleGroup: text("target_muscle_group").notNull(),
   difficulty: text("difficulty").notNull(),
   reps: integer("reps").notNull(),
+  isHold: boolean("is_hold").default(false).notNull(),
+  alternatesSides: boolean("alternates_sides").default(false).notNull(),
+  actualReps: integer("actual_reps"),
+  actualSeconds: integer("actual_seconds"),
+  skipped: boolean("skipped").default(false).notNull(),
 });
 
 export const workoutRoundsRelations = relations(workoutRounds, ({ one }) => ({
@@ -155,6 +161,9 @@ export interface GeneratedWorkout {
     reps: number;
     isHold?: boolean;
     alternatesSides?: boolean;
+    actualReps?: number;
+    actualSeconds?: number;
+    skipped?: boolean;
   }>;
   // Framework-specific metadata
   workSeconds?: number; // For Tabata: work duration per interval

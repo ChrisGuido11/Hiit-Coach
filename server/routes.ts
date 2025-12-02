@@ -13,6 +13,7 @@ import { pickFrameworkForGoal } from "@shared/goals";
 import { insertProfileSchema, insertWorkoutSessionSchema } from "@shared/schema";
 import { z } from "zod";
 import { workoutRoundsArraySchema } from "./utils/roundValidation";
+import { buildPersonalizationInsights, summarizeSessionPerformance } from "./utils/personalization";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -112,6 +113,9 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Profile not found. Please complete onboarding first." });
       }
 
+      const history = await storage.getWorkoutSessions(userId);
+      const personalization = buildPersonalizationInsights(history);
+
       // Check for framework override from query parameter
       const frameworkOverride = req.query.framework as string | undefined;
 
@@ -132,7 +136,8 @@ export async function registerRoutes(
         profile.equipment as string[],
         profile.goalFocus ?? null,
         profile.primaryGoal ?? null,
-        profile.goalWeights ?? undefined
+        profile.goalWeights ?? undefined,
+        personalization,
       ] as const;
 
       switch (selectedFramework) {
@@ -162,9 +167,9 @@ export async function registerRoutes(
   app.post('/api/workout/session', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      
+
       // Extract session data and rounds from request
-      const { rounds, perceivedExertion, ...sessionData } = req.body;
+      const { rounds, perceivedExertion, notes, ...sessionData } = req.body;
 
       if (!Array.isArray(rounds)) {
         return res
@@ -177,6 +182,7 @@ export async function registerRoutes(
         ...sessionData,
         userId,
         perceivedExertion,
+        notes,
         completed: true,
       });
 
@@ -188,7 +194,7 @@ export async function registerRoutes(
       
       // Create workout session
       const session = await storage.createWorkoutSession(validatedSession);
-      
+
       // Create workout rounds
       const roundsData = parsedRounds.data.map((round) => ({
         sessionId: session.id,
@@ -197,15 +203,21 @@ export async function registerRoutes(
         targetMuscleGroup: round.targetMuscleGroup,
         difficulty: round.difficulty,
         reps: round.reps,
+        isHold: Boolean(round.isHold),
+        alternatesSides: Boolean(round.alternatesSides),
+        actualReps: round.actualReps ?? null,
+        actualSeconds: round.actualSeconds ?? null,
+        skipped: Boolean(round.skipped),
       }));
       
       await storage.createWorkoutRounds(roundsData);
       
       // Update skill score based on RPE
-      if (perceivedExertion) {
+      if (perceivedExertion || roundsData.length) {
         const profile = await storage.getProfile(userId);
         if (profile) {
-          const newSkillScore = updateSkillScore(profile.skillScore, perceivedExertion);
+          const sessionPerformance = summarizeSessionPerformance(roundsData as any, perceivedExertion);
+          const newSkillScore = updateSkillScore(profile.skillScore, sessionPerformance);
           await storage.updateProfile(userId, { skillScore: newSkillScore });
         }
       }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Brain, CheckCircle2, Share2, Star } from "lucide-react";
@@ -11,6 +11,12 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { GeneratedWorkout } from "@/../../shared/schema";
 
+type RoundActual = {
+  actualReps?: number;
+  actualSeconds?: number;
+  skipped?: boolean;
+};
+
 export default function WorkoutComplete() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -18,14 +24,42 @@ export default function WorkoutComplete() {
   const [selectedRPE, setSelectedRPE] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [roundsExpanded, setRoundsExpanded] = useState(false);
+  const [roundActuals, setRoundActuals] = useState<Record<number, RoundActual>>({});
 
   const { data: workout, isLoading: isFallbackLoading } = useQuery<GeneratedWorkout | null>({
     queryKey: ["/api/workout/generate"],
   });
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.sessionStorage.getItem("latestWorkoutCompletion");
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed.roundActuals) {
+        setRoundActuals(parsed.roundActuals as Record<number, RoundActual>);
+      }
+      if (!workout && parsed.workout) {
+        queryClient.setQueryData(["/api/workout/generate"], parsed.workout as GeneratedWorkout);
+      }
+    } catch (error) {
+      console.warn("Unable to load completion snapshot", error);
+    }
+  }, [queryClient, workout]);
+
   const saveWorkoutMutation = useMutation({
     mutationFn: async ({ rpe, notes: sessionNotes }: { rpe: number; notes?: string }) => {
       if (!workout) throw new Error("No workout data");
+
+      const payloadRounds = workout.rounds.map((round) => {
+        const actual = roundActuals[round.minuteIndex] || {};
+        return {
+          ...round,
+          actualReps: round.isHold ? undefined : actual.actualReps ?? round.reps,
+          actualSeconds: round.isHold ? actual.actualSeconds ?? round.reps : actual.actualSeconds,
+          skipped: Boolean(actual.skipped),
+        };
+      });
 
       const res = await fetch("/api/workout/session", {
         method: "POST",
@@ -36,7 +70,8 @@ export default function WorkoutComplete() {
           difficultyTag: workout.difficultyTag,
           focusLabel: workout.focusLabel,
           perceivedExertion: rpe,
-          rounds: workout.rounds,
+          rounds: payloadRounds,
+          notes,
         }),
         credentials: "include",
       });
@@ -53,6 +88,9 @@ export default function WorkoutComplete() {
       return res.json();
     },
     onSuccess: () => {
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem("latestWorkoutCompletion");
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/workout/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
       // Clear the workout cache completely so it doesn't show old workouts
