@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,6 +24,12 @@ export default function Home() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [sessionIntent, setSessionIntent] = useState<{
+    energyLevel?: "low" | "moderate" | "high";
+    focusToday?: string;
+    intentNote?: string;
+  } | null>(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -45,8 +51,17 @@ export default function Home() {
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
+  const workoutUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (sessionIntent?.energyLevel) params.set("energyLevel", sessionIntent.energyLevel);
+    if (sessionIntent?.focusToday) params.set("focusToday", sessionIntent.focusToday);
+    if (sessionIntent?.intentNote) params.set("intentNote", sessionIntent.intentNote);
+    const query = params.toString();
+    return `/api/workout/generate${query ? `?${query}` : ""}`;
+  }, [sessionIntent]);
+
   const { data: workout, isLoading: workoutLoading, refetch: regenerateWorkout } = useQuery<GeneratedWorkout>({
-    queryKey: ["/api/workout/generate"],
+    queryKey: [workoutUrl],
     enabled: !!profile,
     retry: false,
   });
@@ -146,6 +161,85 @@ export default function Home() {
 
   const totalWorkouts = historyData.length;
   const totalMinutes = historyData.reduce((sum, session) => sum + session.durationMinutes, 0);
+
+  const daysSinceLastWorkout = useMemo(() => {
+    if (!sortedHistory[0]) return Infinity;
+    const last = new Date(sortedHistory[0].createdAt);
+    const diffMs = today.getTime() - last.getTime();
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  }, [sortedHistory, today]);
+
+  const plannedSessionsPerWeek = useMemo(() => {
+    const level = profile?.fitnessLevel?.toLowerCase();
+    if (level === "advanced") return 5;
+    if (level === "intermediate") return 4;
+    return 3;
+  }, [profile?.fitnessLevel]);
+
+  const missedPlannedSessions = Math.max(plannedSessionsPerWeek - weeklySessions.length, 0);
+
+  const streakIsFragile = currentStreak <= 2 || daysSinceLastWorkout >= 3;
+
+  const dropOffRisk = useMemo(() => {
+    const reasons: string[] = [];
+    if (missedPlannedSessions >= 2) reasons.push("Missed multiple planned sessions this week");
+    if (daysSinceLastWorkout >= 4) reasons.push("No check-ins for 4+ days");
+    if (currentStreak <= 1) reasons.push("Streak reset risk");
+
+    let level: "low" | "medium" | "high" = "low";
+    if (reasons.length >= 2 || daysSinceLastWorkout >= 5) level = "high";
+    else if (reasons.length === 1 || streakIsFragile) level = "medium";
+
+    return { level, reasons };
+  }, [currentStreak, daysSinceLastWorkout, missedPlannedSessions, streakIsFragile]);
+
+  const streakSaverTemplates = [
+    {
+      id: "express-reset",
+      title: "10-min streak saver",
+      detail: "Low-impact EMOM to keep the chain alive",
+      energyLevel: "low" as const,
+      focusToday: "quick cardio + core",
+      intentNote: "Short + easy on purpose—just move and finish",
+      badge: "10 min",
+    },
+    {
+      id: "mobility-breath",
+      title: "Mobility & breath",
+      detail: "Gentle flow to recover and log the day",
+      energyLevel: "low" as const,
+      focusToday: "mobility and breathwork",
+      intentNote: "Restore, stretch, and keep streak momentum",
+      badge: "Light day",
+    },
+    {
+      id: "low-impact-circuit",
+      title: "Low-impact circuit",
+      detail: "12-min circuit with easier ramps to stay engaged",
+      energyLevel: "moderate" as const,
+      focusToday: "low impact full body",
+      intentNote: "Ease back in without crushing intensity",
+      badge: "12 min",
+    },
+  ];
+
+  const handleTemplateSelect = (templateId: string) => {
+    const template = streakSaverTemplates.find((item) => item.id === templateId);
+    if (!template) return;
+    setActiveTemplateId(template.id);
+    setSessionIntent({
+      energyLevel: template.energyLevel,
+      focusToday: template.focusToday,
+      intentNote: template.intentNote,
+    });
+    regenerateWorkout();
+  };
+
+  const handleResetTemplate = () => {
+    setActiveTemplateId(null);
+    setSessionIntent(null);
+    regenerateWorkout();
+  };
 
   if (authLoading) {
     return (
@@ -286,6 +380,83 @@ export default function Home() {
             </div>
           </Card>
         </div>
+
+        {/* Drop-off risk + streak saver guidance */}
+        <Card className="p-4 bg-gradient-to-r from-secondary/40 to-card/70 border-border/60 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase font-bold tracking-wider text-primary">Drop-off Risk</p>
+              <h3 className="text-xl font-bold text-white">{dropOffRisk.level === "high" ? "High" : dropOffRisk.level === "medium" ? "Medium" : "Low"} risk</h3>
+              <p className="text-xs text-muted-foreground">{plannedSessionsPerWeek} planned sessions / week • Missed {missedPlannedSessions} so far</p>
+            </div>
+            <div
+              className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                dropOffRisk.level === "high"
+                  ? "bg-red-500/20 text-red-200 border border-red-500/40"
+                  : dropOffRisk.level === "medium"
+                    ? "bg-amber-500/20 text-amber-100 border border-amber-500/30"
+                    : "bg-emerald-500/20 text-emerald-100 border border-emerald-500/30"
+              }`}
+            >
+              {dropOffRisk.level} risk
+            </div>
+          </div>
+          <div className="text-sm text-gray-300 space-y-2">
+            {dropOffRisk.reasons.length > 0 ? (
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground text-xs">
+                {dropOffRisk.reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground text-xs">You're on track—keep logging consistent check-ins.</p>
+            )}
+            <p className="text-[13px] text-white">
+              Days since last workout: {Number.isFinite(daysSinceLastWorkout) ? daysSinceLastWorkout : "-"}. {streakIsFragile ? "Let's keep the streak safe." : "Momentum is stable."}
+            </p>
+          </div>
+        </Card>
+
+        {streakIsFragile && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase font-bold text-primary tracking-wider">Streak Saver</p>
+                <h3 className="text-lg font-bold text-white">Choose a lighter template to stay engaged</h3>
+                <p className="text-xs text-muted-foreground">Auto-loads lower intensity + mobility friendly workouts.</p>
+              </div>
+              {activeTemplateId && (
+                <Button size="sm" variant="outline" className="text-xs" onClick={handleResetTemplate}>
+                  Exit Streak Saver
+                </Button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {streakSaverTemplates.map((template) => (
+                <Card
+                  key={template.id}
+                  className={`p-4 border ${
+                    activeTemplateId === template.id ? "border-primary shadow-lg shadow-primary/20" : "border-border/50"
+                  } bg-card/60 hover:border-primary/60 transition-colors cursor-pointer`}
+                  onClick={() => handleTemplateSelect(template.id)}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="text-base font-bold text-white mb-1">{template.title}</h4>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{template.detail}</p>
+                    </div>
+                    <span className="text-[11px] px-2 py-1 rounded-full bg-primary/15 text-primary font-bold uppercase tracking-wide">{template.badge}</span>
+                  </div>
+                  <div className="mt-3 text-[11px] text-gray-300 space-y-1">
+                    <p>Energy: {template.energyLevel.toUpperCase()}</p>
+                    <p>Focus: {template.focusToday}</p>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Streaks & Weekly Stats */}
         <div className="grid gap-4">
