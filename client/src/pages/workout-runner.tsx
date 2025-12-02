@@ -20,6 +20,12 @@ type RunnerSettings = {
   intervalVibration: boolean;
 };
 
+type RoundActual = {
+  actualReps?: number;
+  actualSeconds?: number;
+  skipped?: boolean;
+};
+
 export default function WorkoutRunner() {
   const [, setLocation] = useLocation();
   const [isActive, setIsActive] = useState(false);
@@ -31,6 +37,7 @@ export default function WorkoutRunner() {
   const [isPrestartCountdown, setIsPrestartCountdown] = useState(false);
   const [prestartSecondsLeft, setPrestartSecondsLeft] = useState(0);
   const [isLessonsOpen, setIsLessonsOpen] = useState(false);
+  const [roundActuals, setRoundActuals] = useState<Record<number, RoundActual>>({});
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const prestartTimerRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -50,7 +57,38 @@ export default function WorkoutRunner() {
     queryKey: ["/api/workout/generate"],
   });
 
+  useEffect(() => {
+    if (!workout) return;
+    setRoundActuals((previous) => {
+      if (Object.keys(previous).length) return previous;
+      const initial: Record<number, RoundActual> = {};
+      workout.rounds.forEach((round) => {
+        initial[round.minuteIndex] = {
+          actualReps: round.isHold ? undefined : round.reps,
+          actualSeconds: round.isHold ? round.reps : undefined,
+          skipped: false,
+        };
+      });
+      return initial;
+    });
+  }, [workout]);
+
+  const updateRoundActual = (minuteIndex: number, data: RoundActual) => {
+    setRoundActuals((previous) => ({ ...previous, [minuteIndex]: { ...previous[minuteIndex], ...data } }));
+  };
+
+  const persistCompletionSnapshot = () => {
+    if (!workout) return;
+    try {
+      const payload = { workout, roundActuals };
+      window.sessionStorage.setItem("latestWorkoutCompletion", JSON.stringify(payload));
+    } catch (error) {
+      console.warn("Unable to persist workout completion snapshot", error);
+    }
+  };
+
   const goToWorkoutComplete = () => {
+    persistCompletionSnapshot();
     setLocation("/workout/complete", { state: workout });
   };
 
@@ -369,6 +407,7 @@ export default function WorkoutRunner() {
 
   const currentExercise = workout.rounds[currentRoundIndex];
   const nextExercise = workout.rounds[currentRoundIndex + 1] || null;
+  const currentActual = roundActuals[currentExercise.minuteIndex] || {};
 
   const toggleTimer = () => {
     if (isActive || isPrestartCountdown) {
@@ -576,11 +615,11 @@ export default function WorkoutRunner() {
           </div>
 
           {/* Next Up Preview */}
-          <div className="bg-black/40 rounded-xl p-4 flex items-center justify-between mb-6 border border-border/30">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-1 bg-primary rounded-full" />
-              <div>
-                <p className="text-xs text-muted-foreground uppercase font-bold">Next Up</p>
+            <div className="bg-black/40 rounded-xl p-4 flex items-center justify-between mb-6 border border-border/30">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-1 bg-primary rounded-full" />
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase font-bold">Next Up</p>
                 <p className="font-bold text-white">{nextExercise ? nextExercise.exerciseName : "Finish"}</p>
               </div>
             </div>
@@ -589,14 +628,65 @@ export default function WorkoutRunner() {
                 {workout.framework === "Tabata"
                   ? `${workout.workSeconds ?? 20}s`
                   : (nextExercise as any).isHold ? `${nextExercise.reps}s` : (nextExercise as any).alternatesSides ? `${nextExercise.reps}r (${nextExercise.reps / 2}/leg)` : `${nextExercise.reps} reps`}
-              </span>
-            )}
-          </div>
+                </span>
+              )}
+            </div>
 
-          {/* Controls */}
-          <div className="grid grid-cols-3 gap-4">
-            <Button
-              variant="outline"
+            {/* Interval feedback */}
+            <div className="mb-6 space-y-3 rounded-xl border border-border/40 bg-muted/5 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs uppercase font-bold text-muted-foreground">Log this interval</p>
+                  <p className="text-sm text-white">Tell the coach how it actually went.</p>
+                </div>
+                <Button
+                  variant={currentActual.skipped ? "default" : "outline"}
+                  size="sm"
+                  onClick={() =>
+                    updateRoundActual(currentExercise.minuteIndex, {
+                      skipped: !currentActual.skipped,
+                      actualReps: currentExercise.isHold ? undefined : currentExercise.reps,
+                      actualSeconds: currentExercise.isHold ? currentExercise.reps : undefined,
+                    })
+                  }
+                >
+                  {currentActual.skipped ? "Skipped" : "Mark Skip"}
+                </Button>
+              </div>
+
+              {!currentActual.skipped ? (
+                <div className="flex items-center gap-3">
+                  <Label className="text-sm text-muted-foreground whitespace-nowrap">
+                    Actual {currentExercise.isHold ? "seconds" : "reps"}
+                  </Label>
+                  <input
+                    type="number"
+                    min={0}
+                    className="w-28 rounded-lg border border-border/50 bg-card px-3 py-2 text-white"
+                    value={
+                      currentExercise.isHold
+                        ? currentActual.actualSeconds ?? currentExercise.reps
+                        : currentActual.actualReps ?? currentExercise.reps
+                    }
+                    onChange={(event) => {
+                      const value = Math.max(0, Number(event.target.value));
+                      updateRoundActual(currentExercise.minuteIndex, {
+                        actualReps: currentExercise.isHold ? currentActual.actualReps : value,
+                        actualSeconds: currentExercise.isHold ? value : currentActual.actualSeconds,
+                        skipped: false,
+                      });
+                    }}
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">We'll down-weight this move in future plans.</p>
+              )}
+            </div>
+
+            {/* Controls */}
+            <div className="grid grid-cols-3 gap-4">
+              <Button
+                variant="outline"
               className="h-14 border-border/50 hover:bg-secondary/50 hover:text-white"
               onClick={() => {
                 setCurrentRoundIndex(0);

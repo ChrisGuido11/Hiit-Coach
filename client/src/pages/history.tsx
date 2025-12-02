@@ -1,15 +1,37 @@
+import { useEffect } from "react";
+import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import MobileLayout from "@/components/layout/mobile-layout";
 import { Card } from "@/components/ui/card";
-import { Calendar, TrendingUp, Award } from "lucide-react";
+import { Award } from "lucide-react";
+import type { WorkoutRound, WorkoutSession } from "@/../../shared/schema";
 
-const HISTORY_DATA = [
-  { date: "Today", name: "The Gauntlet", duration: "20 min", rating: "Hard" },
-  { date: "Yesterday", name: "Core Crusher", duration: "10 min", rating: "Medium" },
-  { date: "Nov 27", name: "Leg Day", duration: "15 min", rating: "Hard" },
-  { date: "Nov 25", name: "Quick HIIT", duration: "12 min", rating: "Easy" },
-];
+type HistorySession = WorkoutSession & { rounds: WorkoutRound[] };
 
 export default function History() {
+  const [, setLocation] = useLocation();
+
+  const { data: history, isLoading, refetch } = useQuery<HistorySession[]>({
+    queryKey: ["/api/workout/history"],
+    queryFn: async () => {
+      const res = await fetch("/api/workout/history", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load history");
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (history && history.length) {
+      // clear selected detail when new data arrives
+      window.sessionStorage.removeItem("selectedHistorySession");
+    }
+  }, [history]);
+
+  const formatDate = (value: string) => {
+    const date = new Date(value);
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  };
+
   return (
     <MobileLayout>
       <div className="p-6 pb-24 space-y-6">
@@ -18,7 +40,7 @@ export default function History() {
         {/* Summary Cards */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <Card className="p-4 bg-primary/10 border-primary/20 flex flex-col items-center justify-center py-6">
-            <span className="text-4xl font-display font-bold text-primary neon-text">4</span>
+            <span className="text-4xl font-display font-bold text-primary neon-text">{history?.length ?? 0}</span>
             <span className="text-xs uppercase font-bold tracking-wider text-muted-foreground">This Week</span>
           </Card>
           <Card className="p-4 bg-card/50 border-border/50 flex flex-col items-center justify-center py-6">
@@ -27,22 +49,55 @@ export default function History() {
           </Card>
         </div>
 
-        <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">Recent Workouts</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Recent Workouts</h2>
+          <button
+            onClick={() => refetch()}
+            className="text-xs text-primary underline underline-offset-4"
+            disabled={isLoading}
+          >
+            Refresh
+          </button>
+        </div>
 
         <div className="space-y-3">
-          {HISTORY_DATA.map((item, idx) => (
-            <Card key={idx} className="p-4 bg-card/40 border-border/40 flex items-center justify-between">
-              <div className="flex gap-4 items-center">
-                <div className="h-12 w-12 rounded-lg bg-secondary flex items-center justify-center">
-                  <Award className="text-muted-foreground w-6 h-6" />
+          {isLoading && (
+            <Card className="p-4 bg-card/40 border-border/40 text-center text-muted-foreground">Loading...</Card>
+          )}
+          {!isLoading && (!history || history.length === 0) && (
+            <Card className="p-4 bg-card/40 border-border/40 text-center text-muted-foreground">
+              Log a workout to see your history here.
+            </Card>
+          )}
+          {history?.map((session) => (
+            <Card
+              key={session.id}
+              className="p-4 bg-card/40 border-border/40 flex flex-col gap-2 cursor-pointer hover:border-primary/40"
+              onClick={() => {
+                window.sessionStorage.setItem("selectedHistorySession", JSON.stringify(session));
+                setLocation("/workout/detail");
+              }}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex gap-4 items-start">
+                  <div className="h-12 w-12 rounded-lg bg-secondary flex items-center justify-center">
+                    <Award className="text-muted-foreground w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white">{session.focusLabel}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(session.createdAt as unknown as string)} • {session.durationMinutes} min
+                    </p>
+                    {session.notes ? (
+                      <p className="text-xs text-muted-foreground italic">“{session.notes}”</p>
+                    ) : null}
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-white">{item.name}</h3>
-                  <p className="text-xs text-muted-foreground">{item.date} • {item.duration}</p>
+                <div className="text-right text-xs text-muted-foreground space-y-1">
+                  <p className="font-bold uppercase text-white">{session.difficultyTag}</p>
+                  <p>RPE: {session.perceivedExertion ?? "-"}</p>
+                  <p>Rounds: {session.rounds.length}</p>
                 </div>
-              </div>
-              <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-xs font-bold uppercase text-gray-300">
-                {item.rating}
               </div>
             </Card>
           ))}

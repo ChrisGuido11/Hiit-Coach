@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Play, RotateCw, Zap, Flame, Infinity, Repeat } from "lucide-react";
@@ -7,6 +8,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FRAMEWORK_CONFIGS, Framework } from "@/../../shared/frameworks";
 import type { GeneratedWorkout } from "@/../../shared/schema";
+
+type WorkoutDetailData = GeneratedWorkout & { notes?: string; perceivedExertion?: number; createdAt?: string };
 
 // Icon mapping for frameworks
 const FRAMEWORK_ICONS: Record<Framework, typeof Zap> = {
@@ -18,20 +21,36 @@ const FRAMEWORK_ICONS: Record<Framework, typeof Zap> = {
 
 export default function WorkoutDetail() {
   const [, setLocation] = useLocation();
+  const [historyWorkout, setHistoryWorkout] = useState<WorkoutDetailData | null>(null);
 
   const { data: workout, isLoading, refetch } = useQuery<GeneratedWorkout>({
     queryKey: ["/api/workout/generate"],
   });
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.sessionStorage.getItem("selectedHistorySession");
+      if (raw) {
+        const parsed = JSON.parse(raw) as WorkoutDetailData;
+        setHistoryWorkout(parsed);
+      }
+    } catch (error) {
+      console.warn("Unable to load stored workout detail", error);
+    }
+  }, []);
+
+  const activeWorkout = historyWorkout ?? workout;
+
   // Get framework config if available
-  const frameworkConfig = workout?.framework
-    ? FRAMEWORK_CONFIGS[workout.framework as Framework]
+  const frameworkConfig = activeWorkout?.framework
+    ? FRAMEWORK_CONFIGS[activeWorkout.framework as Framework]
     : null;
-  const FrameworkIcon = workout?.framework
-    ? FRAMEWORK_ICONS[workout.framework as Framework]
+  const FrameworkIcon = activeWorkout?.framework
+    ? FRAMEWORK_ICONS[activeWorkout.framework as Framework]
     : null;
 
-  if (isLoading) {
+  if (isLoading && !historyWorkout) {
     return (
       <MobileLayout hideNav>
         <div className="flex items-center justify-center h-full">
@@ -41,7 +60,7 @@ export default function WorkoutDetail() {
     );
   }
 
-  if (!workout) {
+  if (!activeWorkout) {
     return (
       <MobileLayout hideNav>
         <div className="flex items-center justify-center h-full p-6 text-center">
@@ -125,19 +144,37 @@ export default function WorkoutDetail() {
 
           {/* Summary */}
           <div className="text-center space-y-2">
-            <h1 className="text-5xl font-display font-bold text-white uppercase">{workout.focusLabel}</h1>
+            <h1 className="text-5xl font-display font-bold text-white uppercase">{activeWorkout.focusLabel}</h1>
             <p className="text-xl text-muted-foreground">
-              {workout.durationMinutes} Min {frameworkConfig?.name ?? "HIIT"}
+              {activeWorkout.durationMinutes} Min {frameworkConfig?.name ?? "HIIT"}
             </p>
             <div className="inline-block px-4 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary text-sm font-bold uppercase">
-              {workout.difficultyTag}
+              {activeWorkout.difficultyTag}
             </div>
           </div>
+
+          {(activeWorkout as WorkoutDetailData)?.notes || (activeWorkout as WorkoutDetailData)?.perceivedExertion ? (
+            <Card className="p-4 bg-card/40 border-border/50 text-left space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs uppercase text-muted-foreground">Session feedback</p>
+                {(activeWorkout as WorkoutDetailData)?.perceivedExertion ? (
+                  <Badge variant="secondary" className="text-xs">
+                    RPE {(activeWorkout as WorkoutDetailData).perceivedExertion}
+                  </Badge>
+                ) : null}
+              </div>
+              {(activeWorkout as WorkoutDetailData)?.notes ? (
+                <p className="text-sm text-white leading-relaxed">{(activeWorkout as WorkoutDetailData).notes}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">No notes recorded for this workout.</p>
+              )}
+            </Card>
+          ) : null}
 
           {/* Exercise List */}
           <div className="space-y-2">
             <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">Exercises</h3>
-            {workout.rounds.map((round: any, idx: number) => (
+            {activeWorkout.rounds.map((round: any, idx: number) => (
               <Card key={idx} className="p-4 bg-card/40 border-border/40 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center font-display text-lg font-bold text-primary">
@@ -149,13 +186,11 @@ export default function WorkoutDetail() {
                   </div>
                 </div>
                 <div className="text-right">
-                  {workout.framework === "Tabata" ? (
+                  {activeWorkout.framework === "Tabata" ? (
                     <>
-                      <span className="text-2xl font-display font-bold text-white">
-                        {workout.workSeconds ?? 20}s
-                      </span>
+                      <span className="text-2xl font-display font-bold text-white">{activeWorkout.workSeconds ?? 20}s</span>
                       <p className="text-xs text-muted-foreground uppercase">
-                        Interval • {workout.sets || 8} rounds
+                        Interval • {activeWorkout.sets || 8} rounds
                       </p>
                       {round.reps ? (
                         <p className="text-[10px] text-muted-foreground mt-1">
@@ -185,7 +220,7 @@ export default function WorkoutDetail() {
             data-testid="button-start-workout"
           >
             <Play className="w-5 h-5 mr-2 fill-current" />
-            Start {workout.framework || "HIIT"}
+            Start {activeWorkout.framework || "HIIT"}
           </Button>
         </div>
       </div>
