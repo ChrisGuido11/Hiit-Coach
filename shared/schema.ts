@@ -150,10 +150,12 @@ export const workoutRounds = pgTable("workout_rounds", {
   targetMuscleGroup: text("target_muscle_group").notNull(),
   difficulty: text("difficulty").notNull(),
   reps: integer("reps").notNull(),
+  targetLoad: doublePrecision("target_load"),
   isHold: boolean("is_hold").default(false).notNull(),
   alternatesSides: boolean("alternates_sides").default(false).notNull(),
   actualReps: integer("actual_reps"),
   actualSeconds: integer("actual_seconds"),
+  actualLoad: doublePrecision("actual_load"),
   skipped: boolean("skipped").default(false).notNull(),
 });
 
@@ -190,6 +192,28 @@ export const exerciseStats = pgTable(
 export type ExerciseStat = typeof exerciseStats.$inferSelect;
 export type InsertExerciseStat = typeof exerciseStats.$inferInsert;
 
+// Progressive targets per exercise
+export const exerciseProgressions = pgTable(
+  "exercise_progressions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+    exerciseName: text("exercise_name").notNull(),
+    nextTargetReps: integer("next_target_reps").notNull(),
+    nextTargetLoad: doublePrecision("next_target_load"),
+    overperformanceStreak: integer("overperformance_streak").default(0).notNull(),
+    weeklyIncrements: integer("weekly_increments").default(0).notNull(),
+    weekOfYear: integer("week_of_year").default(0).notNull(),
+    lastSessionAt: timestamp("last_session_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("exercise_progressions_user_exercise_idx").on(table.userId, table.exerciseName),
+  ],
+);
+
+export type ExerciseProgression = typeof exerciseProgressions.$inferSelect;
+export type InsertExerciseProgression = typeof exerciseProgressions.$inferInsert;
+
 // Generated workout type (returned by AI workout generators)
 export interface GeneratedWorkout {
   framework: WorkoutFramework;
@@ -202,10 +226,15 @@ export interface GeneratedWorkout {
     targetMuscleGroup: string;
     difficulty: string;
     reps: number;
+    targetReps?: number;
+    targetLoad?: number | null;
+    nextTargetReps?: number | null;
+    nextTargetLoad?: number | null;
     isHold?: boolean;
     alternatesSides?: boolean;
     actualReps?: number;
     actualSeconds?: number;
+    actualLoad?: number | null;
     skipped?: boolean;
   }>;
   // Framework-specific metadata
@@ -219,4 +248,15 @@ export interface GeneratedWorkout {
     intensity: string;
     exerciseSelection: string;
   };
+}
+
+export interface ExerciseResult {
+  exerciseName: string;
+  targetReps: number;
+  targetLoad?: number | null;
+  actualReps?: number | null;
+  actualSeconds?: number | null;
+  actualLoad?: number | null;
+  isHold?: boolean;
+  alternatesSides?: boolean;
 }

@@ -174,41 +174,57 @@ export default function WorkoutDetail() {
           {/* Exercise List */}
           <div className="space-y-2">
             <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">Exercises</h3>
-            {activeWorkout.rounds.map((round: any, idx: number) => (
-              <Card key={idx} className="p-4 bg-card/40 border-border/40 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center font-display text-lg font-bold text-primary">
-                    {round.minuteIndex}
+            {activeWorkout.rounds.map((round: any, idx: number) => {
+              const targetReps = round.targetReps ?? round.reps;
+              const nextTargetReps = round.nextTargetReps ?? null;
+              const targetLoad = round.targetLoad ?? null;
+              const nextTargetLoad = round.nextTargetLoad ?? null;
+
+              return (
+                <Card key={idx} className="p-4 bg-card/40 border-border/40 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center font-display text-lg font-bold text-primary">
+                      {round.minuteIndex}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-white">{round.exerciseName}</h4>
+                      <p className="text-xs text-muted-foreground capitalize">{round.targetMuscleGroup}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-white">{round.exerciseName}</h4>
-                    <p className="text-xs text-muted-foreground capitalize">{round.targetMuscleGroup}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  {activeWorkout.framework === "Tabata" ? (
-                    <>
-                      <span className="text-2xl font-display font-bold text-white">{activeWorkout.workSeconds ?? 20}s</span>
-                      <p className="text-xs text-muted-foreground uppercase">
-                        Interval • {activeWorkout.sets || 8} rounds
-                      </p>
-                      {round.reps ? (
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          Target ~{round.reps} reps
+                  <div className="text-right space-y-1">
+                    {activeWorkout.framework === "Tabata" ? (
+                      <>
+                        <span className="text-2xl font-display font-bold text-white">{activeWorkout.workSeconds ?? 20}s</span>
+                        <p className="text-xs text-muted-foreground uppercase">
+                          Interval • {activeWorkout.sets || 8} rounds
                         </p>
-                      ) : null}
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-2xl font-display font-bold text-white">{round.reps}</span>
-                      <p className="text-xs text-muted-foreground uppercase">
-                        {(round as any).isHold ? "Seconds" : (round as any).alternatesSides ? `Reps (${round.reps / 2}/leg)` : "Reps"}
+                        {targetReps ? (
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            Target ~{targetReps} reps
+                          </p>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-2xl font-display font-bold text-white">{targetReps}</span>
+                        <p className="text-xs text-muted-foreground uppercase">
+                          {(round as any).isHold ? "Seconds" : (round as any).alternatesSides ? `Reps (${targetReps / 2}/leg)` : "Reps"}
+                        </p>
+                      </>
+                    )}
+                    {targetLoad ? (
+                      <p className="text-[10px] text-muted-foreground">Load target: {targetLoad}</p>
+                    ) : null}
+                    {nextTargetReps ? (
+                      <p className="text-[10px] text-primary">
+                        Next session: {nextTargetReps}
+                        {nextTargetLoad ? ` @ ${nextTargetLoad}` : ""}
                       </p>
-                    </>
-                  )}
-                </div>
-              </Card>
-            ))}
+                    ) : null}
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         </div>
 

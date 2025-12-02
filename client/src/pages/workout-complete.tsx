@@ -14,6 +14,7 @@ import type { GeneratedWorkout } from "@/../../shared/schema";
 type RoundActual = {
   actualReps?: number;
   actualSeconds?: number;
+  actualLoad?: number;
   skipped?: boolean;
 };
 
@@ -53,10 +54,19 @@ export default function WorkoutComplete() {
 
       const payloadRounds = workout.rounds.map((round) => {
         const actual = roundActuals[round.minuteIndex] || {};
+        const reps = round.targetReps ?? round.reps;
         return {
-          ...round,
-          actualReps: round.isHold ? undefined : actual.actualReps ?? round.reps,
-          actualSeconds: round.isHold ? actual.actualSeconds ?? round.reps : actual.actualSeconds,
+          minuteIndex: round.minuteIndex,
+          exerciseName: round.exerciseName,
+          targetMuscleGroup: round.targetMuscleGroup,
+          difficulty: round.difficulty,
+          reps,
+          targetLoad: round.targetLoad ?? null,
+          isHold: Boolean(round.isHold),
+          alternatesSides: Boolean(round.alternatesSides),
+          actualReps: round.isHold ? undefined : actual.actualReps ?? reps,
+          actualSeconds: round.isHold ? actual.actualSeconds ?? reps : actual.actualSeconds,
+          actualLoad: actual.actualLoad ?? round.targetLoad ?? null,
           skipped: Boolean(actual.skipped),
         };
       });

@@ -22,6 +22,7 @@ import {
   buildPersonalizationInsights,
   summarizeSessionPerformance,
 } from "./utils/personalization";
+import { buildProgressionUpdates } from "./utils/progression";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -123,6 +124,7 @@ export async function registerRoutes(
 
       const history = await storage.getWorkoutSessions(userId);
       const exerciseStats = await storage.getExerciseStats(userId);
+      const progressions = await storage.getExerciseProgressions(userId);
       const personalization = buildPersonalizationInsights(history, 8, exerciseStats);
 
       const requestIntent = workoutGenerationRequestSchema.parse(req.query);
@@ -196,6 +198,22 @@ export async function registerRoutes(
           `Exercises filtered for available equipment and tuned toward ${sessionIntent.focusToday ?? profile.goalFocus ?? "general"} focus.`,
       };
 
+      const progressionMap = new Map(progressions.map((item) => [item.exerciseName, item] as const));
+      workout.rounds = workout.rounds.map((round) => {
+        const progression = progressionMap.get(round.exerciseName);
+        const targetReps = progression?.nextTargetReps ?? round.targetReps ?? round.reps;
+        const targetLoad = progression?.nextTargetLoad ?? round.targetLoad ?? null;
+
+        return {
+          ...round,
+          targetReps,
+          targetLoad,
+          nextTargetReps: progression?.nextTargetReps ?? targetReps,
+          nextTargetLoad: progression?.nextTargetLoad ?? targetLoad,
+          reps: targetReps,
+        };
+      });
+
       res.json(workout);
     } catch (error) {
       console.error("Error generating workout:", error);
@@ -242,15 +260,23 @@ export async function registerRoutes(
         exerciseName: round.exerciseName,
         targetMuscleGroup: round.targetMuscleGroup,
         difficulty: round.difficulty,
-        reps: round.reps,
+        reps: round.targetReps ?? round.reps,
+        targetLoad: round.targetLoad ?? null,
         isHold: Boolean(round.isHold),
         alternatesSides: Boolean(round.alternatesSides),
         actualReps: round.actualReps ?? null,
         actualSeconds: round.actualSeconds ?? null,
+        actualLoad: round.actualLoad ?? null,
         skipped: Boolean(round.skipped),
       }));
-      
+
       await storage.createWorkoutRounds(roundsData);
+
+      const existingProgressions = await storage.getExerciseProgressions(userId);
+      const progressionUpdates = buildProgressionUpdates(roundsData as any, existingProgressions);
+      if (progressionUpdates.length) {
+        await storage.upsertExerciseProgressions(userId, progressionUpdates);
+      }
 
       // Update exercise-level stats for personalization
       const exerciseSummaries = aggregateExerciseOutcomes(
@@ -293,8 +319,25 @@ export async function registerRoutes(
   app.get('/api/workout/history', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const sessions = await storage.getWorkoutSessions(userId);
-      res.json(sessions);
+      const [sessions, progressions] = await Promise.all([
+        storage.getWorkoutSessions(userId),
+        storage.getExerciseProgressions(userId),
+      ]);
+
+      const progressionMap = new Map(progressions.map((item) => [item.exerciseName, item] as const));
+      const sessionsWithTargets = sessions.map((session) => ({
+        ...session,
+        rounds: session.rounds.map((round) => {
+          const progression = progressionMap.get(round.exerciseName);
+          return {
+            ...round,
+            nextTargetReps: progression?.nextTargetReps ?? null,
+            nextTargetLoad: progression?.nextTargetLoad ?? null,
+          };
+        }),
+      }));
+
+      res.json(sessionsWithTargets);
     } catch (error) {
       console.error("Error fetching workout history:", error);
       res.status(500).json({ message: "Failed to fetch workout history" });

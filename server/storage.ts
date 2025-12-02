@@ -3,6 +3,7 @@ import {
   profiles,
   workoutSessions,
   workoutRounds,
+  exerciseProgressions,
   exerciseStats,
   type User,
   type UpsertUser,
@@ -12,6 +13,8 @@ import {
   type InsertWorkoutSession,
   type WorkoutRound,
   type InsertWorkoutRound,
+  type ExerciseProgression,
+  type InsertExerciseProgression,
   type ExerciseStat,
   type InsertExerciseStat,
 } from "@shared/schema";
@@ -43,6 +46,13 @@ export interface IStorage {
   // Exercise performance stats
   upsertExerciseStats(userId: string, stats: Array<Omit<InsertExerciseStat, "userId" | "id">>): Promise<ExerciseStat[]>;
   getExerciseStats(userId: string): Promise<ExerciseStat[]>;
+
+  // Exercise target progression
+  getExerciseProgressions(userId: string): Promise<ExerciseProgression[]>;
+  upsertExerciseProgressions(
+    userId: string,
+    progressions: Array<Omit<InsertExerciseProgression, "id" | "userId">>,
+  ): Promise<ExerciseProgression[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -182,6 +192,40 @@ export class DatabaseStorage implements IStorage {
 
   async getExerciseStats(userId: string): Promise<ExerciseStat[]> {
     return db.select().from(exerciseStats).where(eq(exerciseStats.userId, userId));
+  }
+
+  async getExerciseProgressions(userId: string): Promise<ExerciseProgression[]> {
+    return db.select().from(exerciseProgressions).where(eq(exerciseProgressions.userId, userId));
+  }
+
+  async upsertExerciseProgressions(
+    userId: string,
+    progressions: Array<Omit<InsertExerciseProgression, "id" | "userId">>,
+  ): Promise<ExerciseProgression[]> {
+    if (!progressions.length) return [];
+
+    const rows = progressions.map((progression) => ({
+      ...progression,
+      userId,
+    }));
+
+    const result = await db
+      .insert(exerciseProgressions)
+      .values(rows)
+      .onConflictDoUpdate({
+        target: [exerciseProgressions.userId, exerciseProgressions.exerciseName],
+        set: {
+          nextTargetReps: sql`excluded.next_target_reps`,
+          nextTargetLoad: sql`excluded.next_target_load`,
+          overperformanceStreak: sql`excluded.overperformance_streak`,
+          weeklyIncrements: sql`excluded.weekly_increments`,
+          weekOfYear: sql`excluded.week_of_year`,
+          lastSessionAt: sql`excluded.last_session_at`,
+        },
+      })
+      .returning();
+
+    return result;
   }
 }
 

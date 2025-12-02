@@ -6,7 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Award } from "lucide-react";
 import type { WorkoutRound, WorkoutSession } from "@/../../shared/schema";
 
-type HistorySession = WorkoutSession & { rounds: WorkoutRound[] };
+type HistoryRound = WorkoutRound & { nextTargetReps?: number | null; nextTargetLoad?: number | null };
+type HistorySession = WorkoutSession & { rounds: HistoryRound[] };
 
 export default function History() {
   const [, setLocation] = useLocation();

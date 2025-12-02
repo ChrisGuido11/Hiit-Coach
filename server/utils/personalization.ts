@@ -55,7 +55,7 @@ export function buildPersonalizationInsights(
         continue;
       }
 
-      const target = round.reps || 1;
+      const target = round.targetReps ?? round.reps || 1;
       const actualValue = round.isHold
         ? round.actualSeconds ?? round.actualReps ?? target
         : round.actualReps ?? round.actualSeconds ?? target;
@@ -151,7 +151,7 @@ export function summarizeSessionPerformance(
       }
       continue;
     }
-    const target = round.reps || 1;
+    const target = round.targetReps ?? round.reps || 1;
     const actualValue = round.isHold
       ? round.actualSeconds ?? round.actualReps ?? target
       : round.actualReps ?? round.actualSeconds ?? target;
@@ -210,7 +210,7 @@ export function aggregateExerciseOutcomes(
       continue;
     }
 
-    const target = round.reps || 1;
+    const target = round.targetReps ?? round.reps || 1;
     const actualValue = round.isHold
       ? round.actualSeconds ?? round.actualReps ?? target
       : round.actualReps ?? round.actualSeconds ?? target;

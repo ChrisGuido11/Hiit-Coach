@@ -23,6 +23,7 @@ type RunnerSettings = {
 type RoundActual = {
   actualReps?: number;
   actualSeconds?: number;
+  actualLoad?: number;
   skipped?: boolean;
 };
 
@@ -66,6 +67,7 @@ export default function WorkoutRunner() {
         initial[round.minuteIndex] = {
           actualReps: round.isHold ? undefined : round.reps,
           actualSeconds: round.isHold ? round.reps : undefined,
+          actualLoad: round.targetLoad ?? undefined,
           skipped: false,
         };
       });
@@ -655,28 +657,47 @@ export default function WorkoutRunner() {
               </div>
 
               {!currentActual.skipped ? (
-                <div className="flex items-center gap-3">
-                  <Label className="text-sm text-muted-foreground whitespace-nowrap">
-                    Actual {currentExercise.isHold ? "seconds" : "reps"}
-                  </Label>
-                  <input
-                    type="number"
-                    min={0}
-                    className="w-28 rounded-lg border border-border/50 bg-card px-3 py-2 text-white"
-                    value={
-                      currentExercise.isHold
-                        ? currentActual.actualSeconds ?? currentExercise.reps
-                        : currentActual.actualReps ?? currentExercise.reps
-                    }
-                    onChange={(event) => {
-                      const value = Math.max(0, Number(event.target.value));
-                      updateRoundActual(currentExercise.minuteIndex, {
-                        actualReps: currentExercise.isHold ? currentActual.actualReps : value,
-                        actualSeconds: currentExercise.isHold ? value : currentActual.actualSeconds,
-                        skipped: false,
-                      });
-                    }}
-                  />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Label className="text-sm text-muted-foreground whitespace-nowrap">
+                      Actual {currentExercise.isHold ? "seconds" : "reps"}
+                    </Label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="w-28 rounded-lg border border-border/50 bg-card px-3 py-2 text-white"
+                      value={
+                        currentExercise.isHold
+                          ? currentActual.actualSeconds ?? currentExercise.reps
+                          : currentActual.actualReps ?? currentExercise.reps
+                      }
+                      onChange={(event) => {
+                        const value = Math.max(0, Number(event.target.value));
+                        updateRoundActual(currentExercise.minuteIndex, {
+                          actualReps: currentExercise.isHold ? currentActual.actualReps : value,
+                          actualSeconds: currentExercise.isHold ? value : currentActual.actualSeconds,
+                          skipped: false,
+                        });
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Label className="text-sm text-muted-foreground whitespace-nowrap">Load (optional)</Label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      className="w-28 rounded-lg border border-border/50 bg-card px-3 py-2 text-white"
+                      value={currentActual.actualLoad ?? currentExercise.targetLoad ?? ""}
+                      onChange={(event) => {
+                        const value = Math.max(0, Number(event.target.value));
+                        updateRoundActual(currentExercise.minuteIndex, {
+                          actualLoad: Number.isNaN(value) ? undefined : value,
+                          skipped: false,
+                        });
+                      }}
+                    />
+                  </div>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">We'll down-weight this move in future plans.</p>
