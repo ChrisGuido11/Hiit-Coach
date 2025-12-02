@@ -8,7 +8,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FRAMEWORK_CONFIGS, Framework } from "@/../../shared/frameworks";
 import type { GeneratedWorkout } from "@/../../shared/schema";
-import { useQuery } from "@tanstack/react-query";
 import { getQueryFn } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 
