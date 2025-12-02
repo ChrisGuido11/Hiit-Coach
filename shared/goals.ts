@@ -13,13 +13,9 @@
  */
 
 export type PrimaryGoalId =
-  | 'cardio_endurance'
-  | 'strength_power'
-  | 'metabolic_conditioning'
   | 'fat_loss'
   | 'muscle_gain'
-  | 'mobility_recovery'
-  | 'athletic_performance';
+  | 'strength_power';
 
 export type IconLibrary = 'activity' | 'dumbbell' | 'flame' | 'target' | 'trending-up' | 'heart' | 'zap';
 
@@ -51,57 +47,6 @@ export interface PrimaryGoalConfig {
 }
 
 export const PRIMARY_GOALS: PrimaryGoalConfig[] = [
-  {
-    id: 'cardio_endurance',
-    label: 'Cardio & Endurance',
-    subtitle: 'Improve stamina, VO₂ max, and conditioning',
-    iconName: 'activity',
-    aiTags: ['endurance', 'cardio', 'longer intervals', 'steady effort', 'aerobic'],
-    frameworkBias: { tabata: 0.2, emom: 0.3, amrap: 0.2, circuit: 0.3 },
-    intensityBias: 'moderate',
-    preferredDurationsMinutes: [15, 30],
-    restMultiplier: 0.9, // Slightly shorter rest for conditioning
-    exerciseBias: {
-      compoundLifts: 0.3,
-      cardio: 0.8,
-      plyometric: 0.4,
-      mobility: 0.3,
-    },
-  },
-  {
-    id: 'strength_power',
-    label: 'Strength & Power',
-    subtitle: 'Build strength, explosiveness, and muscle',
-    iconName: 'dumbbell',
-    aiTags: ['strength', 'power', 'compound lifts', 'longer rest', 'explosive'],
-    frameworkBias: { tabata: 0.1, emom: 0.4, amrap: 0.2, circuit: 0.3 },
-    intensityBias: 'moderate',
-    preferredDurationsMinutes: [10, 25],
-    restMultiplier: 1.3, // Longer rest for strength recovery
-    exerciseBias: {
-      compoundLifts: 0.9,
-      cardio: 0.2,
-      plyometric: 0.6,
-      mobility: 0.2,
-    },
-  },
-  {
-    id: 'metabolic_conditioning',
-    label: 'Metabolic Conditioning',
-    subtitle: 'High-intensity work capacity and fat burn',
-    iconName: 'flame',
-    aiTags: ['metcon', 'intense', 'short rest', 'mixed modal', 'anaerobic'],
-    frameworkBias: { tabata: 0.4, emom: 0.3, amrap: 0.2, circuit: 0.1 },
-    intensityBias: 'high',
-    preferredDurationsMinutes: [8, 20],
-    restMultiplier: 0.7, // Minimal rest for metabolic stress
-    exerciseBias: {
-      compoundLifts: 0.5,
-      cardio: 0.7,
-      plyometric: 0.7,
-      mobility: 0.1,
-    },
-  },
   {
     id: 'fat_loss',
     label: 'Fat Loss',
@@ -137,37 +82,20 @@ export const PRIMARY_GOALS: PrimaryGoalConfig[] = [
     },
   },
   {
-    id: 'mobility_recovery',
-    label: 'Mobility & Recovery',
-    subtitle: 'Move better, reduce soreness, feel fresher',
-    iconName: 'heart',
-    aiTags: ['mobility', 'stretching', 'low intensity', 'recovery', 'flexibility'],
-    frameworkBias: { tabata: 0, emom: 0.1, amrap: 0, circuit: 0.9 },
-    intensityBias: 'low',
-    preferredDurationsMinutes: [8, 20],
-    restMultiplier: 1.5, // Longer holds and rest between movements
+    id: 'strength_power',
+    label: 'Strength & Power',
+    subtitle: 'Build strength, explosiveness, and muscle',
+    iconName: 'dumbbell',
+    aiTags: ['strength', 'power', 'compound lifts', 'longer rest', 'explosive'],
+    frameworkBias: { tabata: 0.1, emom: 0.4, amrap: 0.2, circuit: 0.3 },
+    intensityBias: 'moderate',
+    preferredDurationsMinutes: [10, 25],
+    restMultiplier: 1.3, // Longer rest for strength recovery
     exerciseBias: {
-      compoundLifts: 0.1,
+      compoundLifts: 0.9,
       cardio: 0.2,
-      plyometric: 0,
-      mobility: 0.95,
-    },
-  },
-  {
-    id: 'athletic_performance',
-    label: 'Athletic Performance',
-    subtitle: 'Speed, agility, and sport-ready conditioning',
-    iconName: 'zap',
-    aiTags: ['agility', 'explosive', 'mixed', 'sport', 'power', 'speed'],
-    frameworkBias: { tabata: 0.3, emom: 0.3, amrap: 0.2, circuit: 0.2 },
-    intensityBias: 'high',
-    preferredDurationsMinutes: [12, 25],
-    restMultiplier: 1.0, // Balanced rest for explosiveness
-    exerciseBias: {
-      compoundLifts: 0.6,
-      cardio: 0.5,
-      plyometric: 0.9,
-      mobility: 0.3,
+      plyometric: 0.6,
+      mobility: 0.2,
     },
   },
 ];
