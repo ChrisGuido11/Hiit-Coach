@@ -190,6 +190,16 @@ export const exerciseStats = pgTable(
 export type ExerciseStat = typeof exerciseStats.$inferSelect;
 export type InsertExerciseStat = typeof exerciseStats.$inferInsert;
 
+export type ExerciseMasteryTier = "Novice" | "Building" | "Pro" | "Master";
+
+export interface ExerciseMasterySummary {
+  exerciseName: string;
+  masteryScore: number;
+  masteryTier: ExerciseMasteryTier;
+  sampleSize: number;
+  lastPerformedAt: Date | null;
+}
+
 // Generated workout type (returned by AI workout generators)
 export interface GeneratedWorkout {
   framework: WorkoutFramework;

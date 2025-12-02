@@ -6,12 +6,14 @@ import { Play, TrendingUp, Flame, Clock, ArrowRight, RotateCw, Beaker, Flame as 
 import MobileLayout from "@/components/layout/mobile-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import type { GeneratedWorkout, Profile as ProfileModel, WorkoutSession } from "@/../../shared/schema";
+import type { ExerciseMasterySummary, GeneratedWorkout, Profile as ProfileModel, WorkoutSession } from "@/../../shared/schema";
 import { getQueryFn } from "@/lib/queryClient";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis } from "recharts";
+import { MasteryProgressList } from "@/components/mastery-tiers";
 
 function getTimeGreeting(): string {
   const hour = new Date().getHours();
@@ -49,6 +51,12 @@ export default function Home() {
     queryKey: ["/api/workout/generate"],
     enabled: !!profile,
     retry: false,
+  });
+
+  const { data: mastery = [] } = useQuery<ExerciseMasterySummary[] | null>({
+    queryKey: ["/api/exercises/progress"],
+    enabled: !!profile,
+    queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
   const { data: history = [] } = useQuery<WorkoutSession[] | null>({
@@ -373,6 +381,23 @@ export default function Home() {
             </Card>
           </div>
         </div>
+
+        {/* Mastery snapshot */}
+        {mastery && mastery.length > 0 && (
+          <Card className="p-4 bg-card/40 border-border/60">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-xs uppercase font-bold text-primary tracking-wider">Movement Mastery</p>
+                <h3 className="text-lg font-bold text-white">Top Skills We Know You Own</h3>
+                <p className="text-xs text-muted-foreground">
+                  Higher mastery unlocks harder variations and extra volume automatically.
+                </p>
+              </div>
+              <Badge className="bg-white/5 border border-white/10 text-xs">Personalized</Badge>
+            </div>
+            <MasteryProgressList items={mastery.slice(0, 4)} />
+          </Card>
+        )}
 
         {/* Recent Activity Preview */}
         {historyData.length > 0 && (

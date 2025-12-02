@@ -28,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import MobileLayout from "@/components/layout/mobile-layout";
 import { EquipmentSelector } from "@/components/equipment-selector";
+import { MasteryTierLegend } from "@/components/mastery-tiers";
 import { normalizeEquipment, type EquipmentId } from "@shared/equipment";
 import { PRIMARY_GOALS, buildGoalWeights, type PrimaryGoalId } from "@shared/goals";
 
@@ -289,6 +290,18 @@ export default function Onboarding() {
 
             <div className="flex-1">
               {currentStep.component}
+            </div>
+
+            <div className="mt-6 space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white">Mastery tiers guide your progression</h3>
+                <span className="text-xs text-muted-foreground">0-100 mastery per exercise</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                We grade each movement from Novice to Master as you log workouts. Higher mastery unlocks harder variations and
+                extra reps automatically.
+              </p>
+              <MasteryTierLegend compact />
             </div>
           </motion.div>
         </AnimatePresence>

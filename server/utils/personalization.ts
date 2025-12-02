@@ -6,6 +6,8 @@ export interface ExerciseScore {
   averageQuality: number;
   utility: number;
   sampleSize: number;
+  masteryScore: number;
+  masteryTier: "Novice" | "Building" | "Pro" | "Master";
 }
 
 export interface PersonalizationInsights {
@@ -15,6 +17,43 @@ export interface PersonalizationInsights {
   fatigueTrend: number;
   exercisePreference: Record<string, number>;
   exerciseScores: Record<string, ExerciseScore>;
+}
+
+interface ExerciseBucket {
+  accept: number;
+  skip: number;
+  completion: number;
+  qualitySum: number;
+  lastPerformedAt?: Date;
+}
+
+function calculateMasteryScore(bucket: ExerciseBucket): number {
+  const attempts = bucket.accept + bucket.skip;
+  const completionRate = attempts ? bucket.accept / attempts : 0.6;
+  const averageQuality = bucket.completion ? bucket.qualitySum / bucket.completion : 1;
+  const recencyPenalty = bucket.lastPerformedAt
+    ? Math.max(0.85, 1 - Math.min((Date.now() - bucket.lastPerformedAt.getTime()) / (1000 * 60 * 60 * 24 * 90), 0.25))
+    : 1;
+
+  const volumeConfidence = Math.min(bucket.completion / 16, 1);
+
+  const mastery =
+    100 *
+    recencyPenalty *
+    (
+      0.55 * Math.min(averageQuality / 1.5, 1.1) +
+      0.3 * completionRate +
+      0.15 * volumeConfidence
+    );
+
+  return Math.max(0, Math.min(Math.round(mastery), 100));
+}
+
+function getMasteryTier(score: number): ExerciseScore["masteryTier"] {
+  if (score >= 90) return "Master";
+  if (score >= 70) return "Pro";
+  if (score >= 40) return "Building";
+  return "Novice";
 }
 
 export interface SessionPerformanceSummary {
@@ -37,7 +76,7 @@ export function buildPersonalizationInsights(
   let totalRounds = 0;
   const preferenceBuckets: Record<string, { score: number; count: number }> = {};
   const rpeValues: number[] = [];
-  const exerciseBuckets: Record<string, { accept: number; skip: number; completion: number; qualitySum: number }> = {};
+  const exerciseBuckets: Record<string, ExerciseBucket> = {};
 
   for (const session of recent) {
     if (typeof session.perceivedExertion === "number") {
@@ -46,7 +85,15 @@ export function buildPersonalizationInsights(
 
     for (const round of session.rounds) {
       totalRounds += 1;
-      const exerciseBucket = exerciseBuckets[round.exerciseName] ?? { accept: 0, skip: 0, completion: 0, qualitySum: 0 };
+      const exerciseBucket =
+        exerciseBuckets[round.exerciseName] ?? {
+          accept: 0,
+          skip: 0,
+          completion: 0,
+          qualitySum: 0,
+          lastPerformedAt: new Date(session.createdAt),
+        };
+      exerciseBucket.lastPerformedAt = new Date(session.createdAt);
 
       if (round.skipped) {
         skippedCount += 1;
@@ -93,17 +140,19 @@ export function buildPersonalizationInsights(
     }),
   );
 
-  const mergedExerciseBuckets: Record<string, { accept: number; skip: number; completion: number; qualitySum: number }> = {
+  const mergedExerciseBuckets: Record<string, ExerciseBucket> = {
     ...exerciseBuckets,
   };
 
   for (const stat of exerciseStats ?? []) {
-    const existing = mergedExerciseBuckets[stat.exerciseName] ?? { accept: 0, skip: 0, completion: 0, qualitySum: 0 };
+    const existing =
+      mergedExerciseBuckets[stat.exerciseName] ?? { accept: 0, skip: 0, completion: 0, qualitySum: 0 };
     mergedExerciseBuckets[stat.exerciseName] = {
       accept: existing.accept + stat.acceptCount,
       skip: existing.skip + stat.skipCount,
       completion: existing.completion + stat.completionCount,
       qualitySum: existing.qualitySum + stat.qualitySum,
+      lastPerformedAt: stat.lastPerformedAt ?? existing.lastPerformedAt,
     };
   }
 
@@ -115,8 +164,13 @@ export function buildPersonalizationInsights(
       const acceptRate = attempts ? bucket.accept / attempts : 0.5;
       const skipRate = attempts ? bucket.skip / attempts : 0;
       const utility = Math.min(1.4, Math.max(0.7, 0.85 + acceptRate * 0.35 + (averageQuality - 1) * 0.3));
+      const masteryScore = calculateMasteryScore(bucket);
+      const masteryTier = getMasteryTier(masteryScore);
 
-      return [exerciseName, { acceptRate, skipRate, averageQuality, utility, sampleSize } satisfies ExerciseScore];
+      return [
+        exerciseName,
+        { acceptRate, skipRate, averageQuality, utility, sampleSize, masteryScore, masteryTier } satisfies ExerciseScore,
+      ];
     }),
   );
 
@@ -196,13 +250,14 @@ export function aggregateExerciseOutcomes(
     Pick<
       WorkoutRound,
       "exerciseName" | "reps" | "actualReps" | "actualSeconds" | "skipped" | "isHold"
-    >
+    >,
   >,
 ) {
-  const aggregates: Record<string, { accept: number; skip: number; completion: number; qualitySum: number }> = {};
+  const aggregates: Record<string, ExerciseBucket> = {};
 
   for (const round of rounds) {
-    const bucket = aggregates[round.exerciseName] ?? { accept: 0, skip: 0, completion: 0, qualitySum: 0 };
+    const bucket =
+      aggregates[round.exerciseName] ?? { accept: 0, skip: 0, completion: 0, qualitySum: 0, lastPerformedAt: new Date() };
 
     if (round.skipped) {
       bucket.skip += 1;
@@ -219,6 +274,7 @@ export function aggregateExerciseOutcomes(
     bucket.accept += 1;
     bucket.completion += 1;
     bucket.qualitySum += ratio;
+    bucket.lastPerformedAt = new Date();
     aggregates[round.exerciseName] = bucket;
   }
 
@@ -228,5 +284,6 @@ export function aggregateExerciseOutcomes(
     skipCount: bucket.skip,
     completionCount: bucket.completion,
     qualitySum: bucket.qualitySum,
+    lastPerformedAt: bucket.lastPerformedAt,
   }));
 }

@@ -14,6 +14,7 @@ import {
   insertProfileSchema,
   insertWorkoutSessionSchema,
   workoutGenerationRequestSchema,
+  type ExerciseMasterySummary,
 } from "@shared/schema";
 import { z } from "zod";
 import { workoutRoundsArraySchema } from "./utils/roundValidation";
@@ -298,6 +299,29 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching workout history:", error);
       res.status(500).json({ message: "Failed to fetch workout history" });
+    }
+  });
+
+  app.get('/api/exercises/progress', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stats = await storage.getExerciseStats(userId);
+      const insights = buildPersonalizationInsights([], 0, stats);
+
+      const mastery: ExerciseMasterySummary[] = Object.entries(insights.exerciseScores).map(
+        ([exerciseName, score]) => ({
+          exerciseName,
+          masteryScore: score.masteryScore,
+          masteryTier: score.masteryTier,
+          sampleSize: score.sampleSize,
+          lastPerformedAt: stats.find((s) => s.exerciseName === exerciseName)?.lastPerformedAt ?? null,
+        }),
+      );
+
+      res.json(mastery);
+    } catch (error) {
+      console.error("Error fetching exercise progress:", error);
+      res.status(500).json({ message: "Failed to fetch exercise progress" });
     }
   });
 

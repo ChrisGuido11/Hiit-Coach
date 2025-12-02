@@ -210,7 +210,23 @@ function banditSelectExercise<T extends { name: string }>(
 
   return weightedRandomSelection(candidates, (item) => {
     const base = baseWeight(item);
-    return applyExerciseUtilityWeight(base, item.name, personalization);
+    const utilityWeighted = applyExerciseUtilityWeight(base, item.name, personalization);
+    const masteryScore = getExerciseMasteryScore(personalization, item.name);
+    const difficulty = (item as any).difficulty as Exercise["difficulty"] | undefined;
+
+    let masteryWeight = utilityWeighted * (0.9 + masteryScore / 200);
+
+    if (difficulty === "advanced") {
+      if (masteryScore < 60) masteryWeight *= 0.4;
+      else if (masteryScore < 75) masteryWeight *= 0.7;
+      else if (masteryScore >= 90) masteryWeight *= 1.15;
+    } else if (difficulty === "intermediate" && masteryScore < 35) {
+      masteryWeight *= 0.7;
+    } else if (masteryScore >= 80) {
+      masteryWeight *= 1.05;
+    }
+
+    return masteryWeight;
   });
 }
 
@@ -232,6 +248,16 @@ function normalizeExerciseBias(
 }
 
 const clampNumber = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+const getExerciseMasteryScore = (personalization: PersonalizationInsights | undefined, name: string) =>
+  personalization?.exerciseScores?.[name]?.masteryScore ?? 50;
+
+const scaleRepsForMastery = (baseReps: number, masteryScore: number) => {
+  if (masteryScore >= 90) return Math.round(baseReps * 1.15);
+  if (masteryScore >= 75) return Math.round(baseReps * 1.08);
+  if (masteryScore <= 35) return Math.max(1, Math.round(baseReps * 0.9));
+  return Math.round(baseReps);
+};
 
 function getEnergyLevelMultiplier(intent?: SessionIntent): number {
   if (!intent?.energyLevel) return 1;
@@ -448,12 +474,16 @@ export function generateEMOMWorkout(
       0.12,
     );
 
+    const masteryScore = getExerciseMasteryScore(personalization, exercise.name);
+    const baseReps = Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier));
+    const masteryReps = Math.max(1, scaleRepsForMastery(baseReps, masteryScore));
+
     rounds.push({
       minuteIndex: i + 1,
       exerciseName: exercise.name,
       targetMuscleGroup: exercise.muscleGroup,
       difficulty: exercise.difficulty,
-      reps: Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier)),
+      reps: masteryReps,
       isHold: exercise.isHold || false,
       alternatesSides: exercise.alternatesSides || false,
     });
@@ -606,17 +636,20 @@ export function generateTabataWorkout(
   for (const exercise of selectedExercises) {
     // Each Tabata exercise has 8 rounds of 20s work / 10s rest
     for (let round = 0; round < 8; round++) {
-        rounds.push({
-          minuteIndex: minuteIndex++,
-          exerciseName: exercise.name,
-          targetMuscleGroup: exercise.muscleGroup,
-          difficulty: exercise.difficulty,
-          reps: Math.max(1, Math.ceil(exercise.reps[difficultyTag] * 0.4 * intensityMultiplier)), // Suggested reps per work interval
-          isHold: exercise.isHold || false,
-          alternatesSides: exercise.alternatesSides || false,
-        });
-      }
+      const masteryScore = getExerciseMasteryScore(personalization, exercise.name);
+      const baseReps = Math.max(1, Math.ceil(exercise.reps[difficultyTag] * 0.4 * intensityMultiplier));
+      const masteryReps = Math.max(1, scaleRepsForMastery(baseReps, masteryScore));
+      rounds.push({
+        minuteIndex: minuteIndex++,
+        exerciseName: exercise.name,
+        targetMuscleGroup: exercise.muscleGroup,
+        difficulty: exercise.difficulty,
+        reps: masteryReps, // Suggested reps per work interval
+        isHold: exercise.isHold || false,
+        alternatesSides: exercise.alternatesSides || false,
+      });
     }
+  }
 
   const focusLabel = intent?.focusToday ?? goalConfig?.label ?? goalFocus ?? "General Fitness";
 
@@ -763,13 +796,16 @@ export function generateAMRAPWorkout(
   // Store as single circuit that user repeats
   for (let i = 0; i < circuitExercises.length; i++) {
     const exercise = circuitExercises[i];
+    const masteryScore = getExerciseMasteryScore(personalization, exercise.name);
+    const baseReps = Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier));
+    const masteryReps = Math.max(1, scaleRepsForMastery(baseReps, masteryScore));
     rounds.push({
       // 1-based index for cleaner UI labels
       minuteIndex: i + 1,
       exerciseName: exercise.name,
       targetMuscleGroup: exercise.muscleGroup,
       difficulty: exercise.difficulty,
-      reps: Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier)),
+      reps: masteryReps,
       isHold: exercise.isHold || false,
       alternatesSides: exercise.alternatesSides || false,
     });
@@ -908,17 +944,20 @@ export function generateCircuitWorkout(
 
   for (let round = 0; round < totalRounds; round++) {
     for (const exercise of circuitExercises) {
-        rounds.push({
-          minuteIndex: minuteIndex++,
-          exerciseName: exercise.name,
-          targetMuscleGroup: exercise.muscleGroup,
-          difficulty: exercise.difficulty,
-          reps: Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier)),
-          isHold: exercise.isHold || false,
-          alternatesSides: exercise.alternatesSides || false,
-        });
-      }
+      const masteryScore = getExerciseMasteryScore(personalization, exercise.name);
+      const baseReps = Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier));
+      const masteryReps = Math.max(1, scaleRepsForMastery(baseReps, masteryScore));
+      rounds.push({
+        minuteIndex: minuteIndex++,
+        exerciseName: exercise.name,
+        targetMuscleGroup: exercise.muscleGroup,
+        difficulty: exercise.difficulty,
+        reps: masteryReps,
+        isHold: exercise.isHold || false,
+        alternatesSides: exercise.alternatesSides || false,
+      });
     }
+  }
 
   // Calculate total duration (estimate: ~45s per exercise + rest between rounds)
   const baseRestBetweenRounds = difficultyTag === "beginner" ? 90 : difficultyTag === "intermediate" ? 60 : 45;
