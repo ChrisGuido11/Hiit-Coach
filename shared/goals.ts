@@ -15,7 +15,11 @@
 export type PrimaryGoalId =
   | 'fat_loss'
   | 'muscle_gain'
-  | 'strength_power';
+  | 'strength_power'
+  | 'cardio_endurance'
+  | 'metabolic_conditioning'
+  | 'mobility_recovery'
+  | 'athletic_performance';
 
 export type IconLibrary = 'activity' | 'dumbbell' | 'flame' | 'target' | 'trending-up' | 'heart' | 'zap';
 
@@ -47,6 +51,23 @@ export interface PrimaryGoalConfig {
 }
 
 export const PRIMARY_GOALS: PrimaryGoalConfig[] = [
+  {
+    id: 'cardio_endurance',
+    label: 'Cardio & Endurance',
+    subtitle: 'Improve stamina and aerobic base',
+    iconName: 'activity',
+    aiTags: ['endurance', 'aerobic', 'engine building', 'steady state', 'long intervals'],
+    frameworkBias: { tabata: 0.1, emom: 0.25, amrap: 0.15, circuit: 0.5 },
+    intensityBias: 'moderate',
+    preferredDurationsMinutes: [20, 35],
+    restMultiplier: 1.0,
+    exerciseBias: {
+      compoundLifts: 0.4,
+      cardio: 0.9,
+      plyometric: 0.3,
+      mobility: 0.2,
+    },
+  },
   {
     id: 'fat_loss',
     label: 'Fat Loss',
@@ -82,6 +103,40 @@ export const PRIMARY_GOALS: PrimaryGoalConfig[] = [
     },
   },
   {
+    id: 'metabolic_conditioning',
+    label: 'Metabolic Conditioning',
+    subtitle: 'High-intensity metabolic work',
+    iconName: 'flame',
+    aiTags: ['metcon', 'lactate threshold', 'intervals', 'work capacity'],
+    frameworkBias: { tabata: 0.35, emom: 0.35, amrap: 0.2, circuit: 0.1 },
+    intensityBias: 'high',
+    preferredDurationsMinutes: [12, 25],
+    restMultiplier: 0.8,
+    exerciseBias: {
+      compoundLifts: 0.7,
+      cardio: 0.7,
+      plyometric: 0.6,
+      mobility: 0.1,
+    },
+  },
+  {
+    id: 'mobility_recovery',
+    label: 'Mobility & Recovery',
+    subtitle: 'Move better and reduce soreness',
+    iconName: 'heart',
+    aiTags: ['mobility', 'recovery', 'low impact', 'stretching', 'joint health'],
+    frameworkBias: { tabata: 0.05, emom: 0.15, amrap: 0.05, circuit: 0.75 },
+    intensityBias: 'low',
+    preferredDurationsMinutes: [10, 20],
+    restMultiplier: 1.4,
+    exerciseBias: {
+      compoundLifts: 0.2,
+      cardio: 0.1,
+      plyometric: 0.05,
+      mobility: 0.95,
+    },
+  },
+  {
     id: 'strength_power',
     label: 'Strength & Power',
     subtitle: 'Build strength, explosiveness, and muscle',
@@ -96,6 +151,23 @@ export const PRIMARY_GOALS: PrimaryGoalConfig[] = [
       cardio: 0.2,
       plyometric: 0.6,
       mobility: 0.2,
+    },
+  },
+  {
+    id: 'athletic_performance',
+    label: 'Athletic Performance',
+    subtitle: 'Power, speed, and agility',
+    iconName: 'zap',
+    aiTags: ['athleticism', 'power', 'speed', 'agility', 'explosive'],
+    frameworkBias: { tabata: 0.2, emom: 0.35, amrap: 0.2, circuit: 0.25 },
+    intensityBias: 'high',
+    preferredDurationsMinutes: [15, 30],
+    restMultiplier: 1.1,
+    exerciseBias: {
+      compoundLifts: 0.8,
+      cardio: 0.4,
+      plyometric: 0.8,
+      mobility: 0.3,
     },
   },
 ];
