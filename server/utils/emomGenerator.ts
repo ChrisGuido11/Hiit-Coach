@@ -14,6 +14,7 @@ import { getEquipmentRichness, migrateEquipment } from "@shared/equipment";
 import type { PrimaryGoalId } from "@shared/goals";
 import { getPrimaryGoalConfig, getCombinedExerciseBias, migrateLegacyGoal } from "@shared/goals";
 import type { GeneratedWorkout } from "@shared/schema";
+import type { PersonalizationInsights, SessionPerformanceSummary } from "./personalization";
 
 interface Exercise {
   name: string;
@@ -196,13 +197,29 @@ function normalizeExerciseBias(
   };
 }
 
+const clampNumber = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+function getIntensityMultiplier(personalization?: PersonalizationInsights): number {
+  if (!personalization) return 1;
+  const adjustment = (personalization.averageHitRate - 1) * 0.4 - personalization.skipRate * 0.35 - personalization.fatigueTrend * 0.25;
+  return clampNumber(1 + adjustment, 0.75, 1.3);
+}
+
+function getMusclePreferenceMultiplier(muscleGroup: string, personalization?: PersonalizationInsights): number {
+  if (!personalization) return 1;
+  const preference = personalization.exercisePreference[muscleGroup];
+  if (!preference) return 1;
+  return clampNumber(preference, 0.85, 1.25);
+}
+
 export function generateEMOMWorkout(
   skillScore: number,
   fitnessLevel: string,
   equipment: string[],
   goalFocus: string | null,
   primaryGoal?: PrimaryGoalId | null,
-  goalWeights?: Record<PrimaryGoalId, number>
+  goalWeights?: Record<PrimaryGoalId, number>,
+  personalization?: PersonalizationInsights
 ): GeneratedWorkout {
   // Migrate legacy goalFocus to new primaryGoal if needed
   let resolvedPrimaryGoal = primaryGoal || migrateLegacyGoal(goalFocus);
@@ -226,6 +243,8 @@ export function generateEMOMWorkout(
   } else {
     difficultyTag = "advanced";
   }
+
+  const intensityMultiplier = getIntensityMultiplier(personalization);
 
   // Determine duration based on goal preferences, difficulty, and equipment richness
   let durationMinutes: number;
@@ -261,6 +280,15 @@ export function generateEMOMWorkout(
         durationMinutes += 3;
       }
     }
+  }
+
+  if (personalization) {
+    const durationTuning = clampNumber(
+      1 + (personalization.averageHitRate - 1) * 0.3 - personalization.skipRate * 0.25,
+      0.85,
+      1.2
+    );
+    durationMinutes = Math.max(6, Math.round(durationMinutes * durationTuning));
   }
 
     // Get exercise bias from goal weights (or use primary goal config)
@@ -314,6 +342,7 @@ export function generateEMOMWorkout(
       finalCandidates,
       (ex) => {
         let baseScore = calculateExerciseFitnessScore(ex, exerciseBias);
+        baseScore *= getMusclePreferenceMultiplier(ex.muscleGroup, personalization);
         
         // AGGRESSIVE BOOST: Unused exercises get 10x weight
         if (!usedExercises.has(ex.name)) {
@@ -339,7 +368,7 @@ export function generateEMOMWorkout(
       exerciseName: exercise.name,
       targetMuscleGroup: exercise.muscleGroup,
       difficulty: exercise.difficulty,
-      reps: exercise.reps[difficultyTag],
+      reps: Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier)),
       isHold: exercise.isHold || false,
       alternatesSides: exercise.alternatesSides || false,
     });
@@ -375,7 +404,8 @@ export function generateTabataWorkout(
   equipment: string[],
   goalFocus: string | null,
   primaryGoal?: PrimaryGoalId | null,
-  goalWeights?: Record<PrimaryGoalId, number>
+  goalWeights?: Record<PrimaryGoalId, number>,
+  personalization?: PersonalizationInsights
 ): GeneratedWorkout {
   // Migrate legacy goalFocus to new primaryGoal if needed
   let resolvedPrimaryGoal = primaryGoal || migrateLegacyGoal(goalFocus);
@@ -400,6 +430,8 @@ export function generateTabataWorkout(
     difficultyTag = "advanced";
   }
 
+  const intensityMultiplier = getIntensityMultiplier(personalization);
+
   // Tabata: 2-3 exercises (8-12 minutes total)
   // Each exercise is 4 minutes (8 rounds of 20s work / 10s rest)
   let numExercises: number;
@@ -411,7 +443,16 @@ export function generateTabataWorkout(
     numExercises = 3; // 12 minutes
   }
 
-  const durationMinutes = numExercises * 4; // 4 minutes per exercise
+  let durationMinutes = numExercises * 4; // 4 minutes per exercise
+
+  if (personalization) {
+    const tuning = clampNumber(
+      1 + (personalization.averageHitRate - 1) * 0.25 - personalization.skipRate * 0.25,
+      0.85,
+      1.2
+    );
+    durationMinutes = Math.max(6, Math.round(durationMinutes * tuning));
+  }
 
     // Get exercise bias from goal weights
     const rawExerciseBias = goalWeights && resolvedPrimaryGoal
@@ -442,15 +483,16 @@ export function generateTabataWorkout(
   // Select unique exercises with variety preference
   for (let i = 0; i < numExercises; i++) {
     const candidates = availableExercises.filter(ex => !selectedExercises.includes(ex));
-    const exercise = weightedRandomSelection(
-      candidates.length > 0 ? candidates : availableExercises,
-      (ex) => {
-        let baseScore = calculateExerciseFitnessScore(ex, exerciseBias);
-        // Boost unused exercises to encourage variety
-        if (!exerciseUsageCount.has(ex.name)) {
-          baseScore *= 1.5;
-        }
-        return baseScore;
+      const exercise = weightedRandomSelection(
+        candidates.length > 0 ? candidates : availableExercises,
+        (ex) => {
+          let baseScore = calculateExerciseFitnessScore(ex, exerciseBias);
+          baseScore *= getMusclePreferenceMultiplier(ex.muscleGroup, personalization);
+          // Boost unused exercises to encourage variety
+          if (!exerciseUsageCount.has(ex.name)) {
+            baseScore *= 1.5;
+          }
+          return baseScore;
       }
     );
     selectedExercises.push(exercise);
@@ -463,17 +505,17 @@ export function generateTabataWorkout(
   for (const exercise of selectedExercises) {
     // Each Tabata exercise has 8 rounds of 20s work / 10s rest
     for (let round = 0; round < 8; round++) {
-      rounds.push({
-        minuteIndex: minuteIndex++,
-        exerciseName: exercise.name,
-        targetMuscleGroup: exercise.muscleGroup,
-        difficulty: exercise.difficulty,
-        reps: Math.ceil(exercise.reps[difficultyTag] * 0.4), // Suggested reps per work interval
-        isHold: exercise.isHold || false,
-        alternatesSides: exercise.alternatesSides || false,
-      });
+        rounds.push({
+          minuteIndex: minuteIndex++,
+          exerciseName: exercise.name,
+          targetMuscleGroup: exercise.muscleGroup,
+          difficulty: exercise.difficulty,
+          reps: Math.max(1, Math.ceil(exercise.reps[difficultyTag] * 0.4 * intensityMultiplier)), // Suggested reps per work interval
+          isHold: exercise.isHold || false,
+          alternatesSides: exercise.alternatesSides || false,
+        });
+      }
     }
-  }
 
   const focusLabel = goalConfig?.label ?? goalFocus ?? "General Fitness";
 
@@ -483,8 +525,8 @@ export function generateTabataWorkout(
     difficultyTag,
     focusLabel,
     rounds,
-    workSeconds: 20,
-    restSeconds: 10,
+    workSeconds: Math.max(15, Math.round(20 * clampNumber(intensityMultiplier, 0.9, 1.15))),
+    restSeconds: Math.max(8, Math.round(10 / clampNumber(intensityMultiplier, 0.9, 1.15))),
     sets: 8,
   };
 }
@@ -502,7 +544,8 @@ export function generateAMRAPWorkout(
   equipment: string[],
   goalFocus: string | null,
   primaryGoal?: PrimaryGoalId | null,
-  goalWeights?: Record<PrimaryGoalId, number>
+  goalWeights?: Record<PrimaryGoalId, number>,
+  personalization?: PersonalizationInsights
 ): GeneratedWorkout {
   // Migrate legacy goalFocus to new primaryGoal if needed
   let resolvedPrimaryGoal = primaryGoal || migrateLegacyGoal(goalFocus);
@@ -527,6 +570,8 @@ export function generateAMRAPWorkout(
     difficultyTag = "advanced";
   }
 
+  const intensityMultiplier = getIntensityMultiplier(personalization);
+
   // AMRAP: 10-20 minutes typical duration
   let durationMinutes: number;
   if (difficultyTag === "beginner") {
@@ -535,6 +580,15 @@ export function generateAMRAPWorkout(
     durationMinutes = 12 + Math.floor(Math.random() * 5); // 12-16 minutes
   } else {
     durationMinutes = 15 + Math.floor(Math.random() * 6); // 15-20 minutes
+  }
+
+  if (personalization) {
+    const tuning = clampNumber(
+      1 + (personalization.averageHitRate - 1) * 0.3 - personalization.skipRate * 0.25,
+      0.85,
+      1.2
+    );
+    durationMinutes = Math.max(8, Math.round(durationMinutes * tuning));
   }
 
     // Get exercise bias from goal weights
@@ -572,15 +626,16 @@ export function generateAMRAPWorkout(
 
   for (let i = 0; i < numExercises; i++) {
     const candidates = availableExercises.filter(ex => !circuitExercises.includes(ex));
-    const exercise = weightedRandomSelection(
-      candidates.length > 0 ? candidates : availableExercises,
-      (ex) => {
-        let baseScore = calculateExerciseFitnessScore(ex, exerciseBias);
-        // Boost unused exercises to encourage variety
-        if (!exerciseUsageCount.has(ex.name)) {
-          baseScore *= 1.5;
-        }
-        return baseScore;
+      const exercise = weightedRandomSelection(
+        candidates.length > 0 ? candidates : availableExercises,
+        (ex) => {
+          let baseScore = calculateExerciseFitnessScore(ex, exerciseBias);
+          baseScore *= getMusclePreferenceMultiplier(ex.muscleGroup, personalization);
+          // Boost unused exercises to encourage variety
+          if (!exerciseUsageCount.has(ex.name)) {
+            baseScore *= 1.5;
+          }
+          return baseScore;
       }
     );
     circuitExercises.push(exercise);
@@ -597,7 +652,7 @@ export function generateAMRAPWorkout(
       exerciseName: exercise.name,
       targetMuscleGroup: exercise.muscleGroup,
       difficulty: exercise.difficulty,
-      reps: exercise.reps[difficultyTag],
+      reps: Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier)),
       isHold: exercise.isHold || false,
       alternatesSides: exercise.alternatesSides || false,
     });
@@ -627,7 +682,8 @@ export function generateCircuitWorkout(
   equipment: string[],
   goalFocus: string | null,
   primaryGoal?: PrimaryGoalId | null,
-  goalWeights?: Record<PrimaryGoalId, number>
+  goalWeights?: Record<PrimaryGoalId, number>,
+  personalization?: PersonalizationInsights
 ): GeneratedWorkout {
   // Migrate legacy goalFocus to new primaryGoal if needed
   let resolvedPrimaryGoal = primaryGoal || migrateLegacyGoal(goalFocus);
@@ -651,6 +707,8 @@ export function generateCircuitWorkout(
   } else {
     difficultyTag = "advanced";
   }
+
+  const intensityMultiplier = getIntensityMultiplier(personalization);
 
   // Circuit: 3-5 rounds
   let totalRounds: number;
@@ -696,15 +754,16 @@ export function generateCircuitWorkout(
 
   for (let i = 0; i < exercisesPerRound; i++) {
     const candidates = availableExercises.filter(ex => !circuitExercises.includes(ex));
-    const exercise = weightedRandomSelection(
-      candidates.length > 0 ? candidates : availableExercises,
-      (ex) => {
-        let baseScore = calculateExerciseFitnessScore(ex, exerciseBias);
-        // Boost unused exercises to encourage variety
-        if (!exerciseUsageCount.has(ex.name)) {
-          baseScore *= 1.5;
-        }
-        return baseScore;
+      const exercise = weightedRandomSelection(
+        candidates.length > 0 ? candidates : availableExercises,
+        (ex) => {
+          let baseScore = calculateExerciseFitnessScore(ex, exerciseBias);
+          baseScore *= getMusclePreferenceMultiplier(ex.muscleGroup, personalization);
+          // Boost unused exercises to encourage variety
+          if (!exerciseUsageCount.has(ex.name)) {
+            baseScore *= 1.5;
+          }
+          return baseScore;
       }
     );
     circuitExercises.push(exercise);
@@ -718,22 +777,30 @@ export function generateCircuitWorkout(
 
   for (let round = 0; round < totalRounds; round++) {
     for (const exercise of circuitExercises) {
-      rounds.push({
-        minuteIndex: minuteIndex++,
-        exerciseName: exercise.name,
-        targetMuscleGroup: exercise.muscleGroup,
-        difficulty: exercise.difficulty,
-        reps: exercise.reps[difficultyTag],
-        isHold: exercise.isHold || false,
-        alternatesSides: exercise.alternatesSides || false,
-      });
+        rounds.push({
+          minuteIndex: minuteIndex++,
+          exerciseName: exercise.name,
+          targetMuscleGroup: exercise.muscleGroup,
+          difficulty: exercise.difficulty,
+          reps: Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier)),
+          isHold: exercise.isHold || false,
+          alternatesSides: exercise.alternatesSides || false,
+        });
+      }
     }
-  }
 
   // Calculate total duration (estimate: ~45s per exercise + rest between rounds)
-  const restBetweenRounds = difficultyTag === "beginner" ? 90 : difficultyTag === "intermediate" ? 60 : 45;
+  const baseRestBetweenRounds = difficultyTag === "beginner" ? 90 : difficultyTag === "intermediate" ? 60 : 45;
+  const restBetweenRounds = Math.max(
+    30,
+    Math.round(
+      baseRestBetweenRounds *
+        clampNumber(1 + (personalization?.fatigueTrend ?? 0) * 0.3 - (personalization?.averageHitRate ?? 1 - 1) * 0.2, 0.75, 1.25),
+    ),
+  );
   const durationMinutes = Math.ceil(
-    (exercisesPerRound * 0.75 * totalRounds) + ((totalRounds - 1) * restBetweenRounds / 60)
+    (exercisesPerRound * 0.75 * totalRounds * clampNumber(intensityMultiplier, 0.9, 1.2)) +
+      ((totalRounds - 1) * restBetweenRounds / 60)
   );
 
   const focusLabel = goalConfig?.label ?? goalFocus ?? "General Fitness";
@@ -749,17 +816,20 @@ export function generateCircuitWorkout(
   };
 }
 
-export function updateSkillScore(currentScore: number, rpe: number): number {
+export function updateSkillScore(currentScore: number, session: SessionPerformanceSummary): number {
+  const { averageHitRate, skipRate, averageRpe } = session;
+
   let newScore = currentScore;
-  
-  if (rpe <= 2) {
-    newScore += 3; // Too easy
-  } else if (rpe === 3) {
-    newScore += 1; // Just right
-  } else {
-    newScore -= 3; // Too hard
+
+  if (typeof averageRpe === "number") {
+    if (averageRpe <= 2) newScore += 3;
+    else if (averageRpe <= 3) newScore += 1;
+    else if (averageRpe >= 5) newScore -= 4;
+    else newScore -= 2;
   }
-  
-  // Clamp between 0-100
-  return Math.max(0, Math.min(100, newScore));
+
+  newScore += (averageHitRate - 1) * 12; // reward exceeding targets
+  newScore -= skipRate * 12; // penalize skips
+
+  return clampNumber(newScore, 0, 100);
 }
