@@ -199,10 +199,55 @@ function normalizeExerciseBias(
 
 const clampNumber = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
+function getUnderperformanceRate(personalization?: PersonalizationInsights): number {
+  if (!personalization) return 0;
+  const entries = Object.values(personalization.exercisePerformance);
+  if (!entries.length) return 0;
+  return entries.filter((perf) => perf.underperformed).length / entries.length;
+}
+
+function getExercisePerformanceMultiplier(exerciseName: string, personalization?: PersonalizationInsights): number {
+  if (!personalization) return 1;
+  const perf = personalization.exercisePerformance[exerciseName];
+  if (!perf) return 1;
+
+  let multiplier = 1;
+  if (perf.underperformed) {
+    multiplier *= 0.75;
+  }
+  if (perf.completionRatio !== undefined) {
+    multiplier *= clampNumber(0.8 + perf.completionRatio * 0.2, 0.65, 1.05);
+  }
+  return clampNumber(multiplier, 0.6, 1.05);
+}
+
+function getExerciseLoadAdjustment(exerciseName: string, personalization?: PersonalizationInsights): number {
+  if (!personalization) return 1;
+  const perf = personalization.exercisePerformance[exerciseName];
+  if (!perf) return 1;
+
+  const completionTuning =
+    perf.completionRatio < 1
+      ? clampNumber(perf.completionRatio, 0.65, 1)
+      : clampNumber(perf.completionRatio, 1, 1.1);
+  const underperformancePenalty = perf.underperformed ? 0.85 : 1;
+
+  return clampNumber(completionTuning * underperformancePenalty, 0.65, 1.1);
+}
+
 function getIntensityMultiplier(personalization?: PersonalizationInsights): number {
   if (!personalization) return 1;
-  const adjustment = (personalization.averageHitRate - 1) * 0.4 - personalization.skipRate * 0.35 - personalization.fatigueTrend * 0.25;
-  return clampNumber(1 + adjustment, 0.75, 1.3);
+  const underperformanceRate = getUnderperformanceRate(personalization);
+  const streakBoost = personalization.streakLength >= 5 ? 0.06 : personalization.streakLength >= 3 ? 0.03 : 0;
+  const consistencyAdjustment = (personalization.timeOfDayAdherence.consistency - 0.5) * 0.08;
+  const adjustment =
+    (personalization.averageHitRate - 1) * 0.35 -
+    personalization.skipRate * 0.3 -
+    personalization.fatigueTrend * 0.3 -
+    underperformanceRate * 0.2 +
+    streakBoost +
+    consistencyAdjustment;
+  return clampNumber(1 + adjustment, 0.7, 1.25);
 }
 
 function getMusclePreferenceMultiplier(muscleGroup: string, personalization?: PersonalizationInsights): number {
@@ -284,11 +329,12 @@ export function generateEMOMWorkout(
 
   if (personalization) {
     const durationTuning = clampNumber(
-      1 + (personalization.averageHitRate - 1) * 0.3 - personalization.skipRate * 0.25,
+      1 + (personalization.averageHitRate - 1) * 0.3 - personalization.skipRate * 0.25 - personalization.fatigueTrend * 0.15,
       0.85,
       1.2
     );
-    durationMinutes = Math.max(6, Math.round(durationMinutes * durationTuning));
+    const consistencyDampener = 1 - Math.max(0, 0.55 - personalization.timeOfDayAdherence.consistency) * 0.2;
+    durationMinutes = Math.max(6, Math.round(durationMinutes * durationTuning * consistencyDampener));
   }
 
     // Get exercise bias from goal weights (or use primary goal config)
@@ -343,7 +389,8 @@ export function generateEMOMWorkout(
       (ex) => {
         let baseScore = calculateExerciseFitnessScore(ex, exerciseBias);
         baseScore *= getMusclePreferenceMultiplier(ex.muscleGroup, personalization);
-        
+        baseScore *= getExercisePerformanceMultiplier(ex.name, personalization);
+
         // AGGRESSIVE BOOST: Unused exercises get 10x weight
         if (!usedExercises.has(ex.name)) {
           baseScore *= 10;
@@ -368,7 +415,7 @@ export function generateEMOMWorkout(
       exerciseName: exercise.name,
       targetMuscleGroup: exercise.muscleGroup,
       difficulty: exercise.difficulty,
-      reps: Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier)),
+      reps: Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier * getExerciseLoadAdjustment(exercise.name, personalization))),
       isHold: exercise.isHold || false,
       alternatesSides: exercise.alternatesSides || false,
     });
@@ -447,11 +494,12 @@ export function generateTabataWorkout(
 
   if (personalization) {
     const tuning = clampNumber(
-      1 + (personalization.averageHitRate - 1) * 0.25 - personalization.skipRate * 0.25,
+      1 + (personalization.averageHitRate - 1) * 0.25 - personalization.skipRate * 0.25 - personalization.fatigueTrend * 0.2,
       0.85,
       1.2
     );
-    durationMinutes = Math.max(6, Math.round(durationMinutes * tuning));
+    const adherenceDampener = 1 - Math.max(0, 0.5 - personalization.timeOfDayAdherence.consistency) * 0.18;
+    durationMinutes = Math.max(6, Math.round(durationMinutes * tuning * adherenceDampener));
   }
 
     // Get exercise bias from goal weights
@@ -488,6 +536,7 @@ export function generateTabataWorkout(
         (ex) => {
           let baseScore = calculateExerciseFitnessScore(ex, exerciseBias);
           baseScore *= getMusclePreferenceMultiplier(ex.muscleGroup, personalization);
+          baseScore *= getExercisePerformanceMultiplier(ex.name, personalization);
           // Boost unused exercises to encourage variety
           if (!exerciseUsageCount.has(ex.name)) {
             baseScore *= 1.5;
@@ -503,6 +552,7 @@ export function generateTabataWorkout(
   // minuteIndex is 1-based for cleaner UI display
   let minuteIndex = 1;
   for (const exercise of selectedExercises) {
+    const loadAdjustment = getExerciseLoadAdjustment(exercise.name, personalization);
     // Each Tabata exercise has 8 rounds of 20s work / 10s rest
     for (let round = 0; round < 8; round++) {
         rounds.push({
@@ -510,7 +560,7 @@ export function generateTabataWorkout(
           exerciseName: exercise.name,
           targetMuscleGroup: exercise.muscleGroup,
           difficulty: exercise.difficulty,
-          reps: Math.max(1, Math.ceil(exercise.reps[difficultyTag] * 0.4 * intensityMultiplier)), // Suggested reps per work interval
+          reps: Math.max(1, Math.ceil(exercise.reps[difficultyTag] * 0.4 * intensityMultiplier * loadAdjustment)), // Suggested reps per work interval
           isHold: exercise.isHold || false,
           alternatesSides: exercise.alternatesSides || false,
         });
@@ -584,11 +634,12 @@ export function generateAMRAPWorkout(
 
   if (personalization) {
     const tuning = clampNumber(
-      1 + (personalization.averageHitRate - 1) * 0.3 - personalization.skipRate * 0.25,
+      1 + (personalization.averageHitRate - 1) * 0.3 - personalization.skipRate * 0.25 - personalization.fatigueTrend * 0.2,
       0.85,
       1.2
     );
-    durationMinutes = Math.max(8, Math.round(durationMinutes * tuning));
+    const adherenceDampener = 1 - Math.max(0, 0.5 - personalization.timeOfDayAdherence.consistency) * 0.18;
+    durationMinutes = Math.max(8, Math.round(durationMinutes * tuning * adherenceDampener));
   }
 
     // Get exercise bias from goal weights
@@ -631,6 +682,7 @@ export function generateAMRAPWorkout(
         (ex) => {
           let baseScore = calculateExerciseFitnessScore(ex, exerciseBias);
           baseScore *= getMusclePreferenceMultiplier(ex.muscleGroup, personalization);
+          baseScore *= getExercisePerformanceMultiplier(ex.name, personalization);
           // Boost unused exercises to encourage variety
           if (!exerciseUsageCount.has(ex.name)) {
             baseScore *= 1.5;
@@ -646,13 +698,14 @@ export function generateAMRAPWorkout(
   // Store as single circuit that user repeats
   for (let i = 0; i < circuitExercises.length; i++) {
     const exercise = circuitExercises[i];
+    const loadAdjustment = getExerciseLoadAdjustment(exercise.name, personalization);
     rounds.push({
       // 1-based index for cleaner UI labels
       minuteIndex: i + 1,
       exerciseName: exercise.name,
       targetMuscleGroup: exercise.muscleGroup,
       difficulty: exercise.difficulty,
-      reps: Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier)),
+      reps: Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier * loadAdjustment)),
       isHold: exercise.isHold || false,
       alternatesSides: exercise.alternatesSides || false,
     });
@@ -759,6 +812,7 @@ export function generateCircuitWorkout(
         (ex) => {
           let baseScore = calculateExerciseFitnessScore(ex, exerciseBias);
           baseScore *= getMusclePreferenceMultiplier(ex.muscleGroup, personalization);
+          baseScore *= getExercisePerformanceMultiplier(ex.name, personalization);
           // Boost unused exercises to encourage variety
           if (!exerciseUsageCount.has(ex.name)) {
             baseScore *= 1.5;
@@ -777,12 +831,13 @@ export function generateCircuitWorkout(
 
   for (let round = 0; round < totalRounds; round++) {
     for (const exercise of circuitExercises) {
+        const loadAdjustment = getExerciseLoadAdjustment(exercise.name, personalization);
         rounds.push({
           minuteIndex: minuteIndex++,
           exerciseName: exercise.name,
           targetMuscleGroup: exercise.muscleGroup,
           difficulty: exercise.difficulty,
-          reps: Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier)),
+          reps: Math.max(1, Math.round(exercise.reps[difficultyTag] * intensityMultiplier * loadAdjustment)),
           isHold: exercise.isHold || false,
           alternatesSides: exercise.alternatesSides || false,
         });
@@ -795,7 +850,15 @@ export function generateCircuitWorkout(
     30,
     Math.round(
       baseRestBetweenRounds *
-        clampNumber(1 + (personalization?.fatigueTrend ?? 0) * 0.3 - (personalization?.averageHitRate ?? 1 - 1) * 0.2, 0.75, 1.25),
+        clampNumber(
+          1 +
+            (personalization?.fatigueTrend ?? 0) * 0.3 +
+            getUnderperformanceRate(personalization) * 0.25 -
+            (personalization ? personalization.averageHitRate - 1 : 0) * 0.2 +
+            (personalization ? Math.max(0, 0.5 - personalization.timeOfDayAdherence.consistency) * 0.2 : 0),
+          0.8,
+          1.35,
+        ),
     ),
   );
   const durationMinutes = Math.ceil(

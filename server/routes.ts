@@ -13,7 +13,11 @@ import { pickFrameworkForGoal } from "@shared/goals";
 import { insertProfileSchema, insertWorkoutSessionSchema } from "@shared/schema";
 import { z } from "zod";
 import { workoutRoundsArraySchema } from "./utils/roundValidation";
-import { buildPersonalizationInsights, summarizeSessionPerformance } from "./utils/personalization";
+import {
+  buildPersonalizationInsights,
+  personalizeFrameworkSelection,
+  summarizeSessionPerformance,
+} from "./utils/personalization";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -125,7 +129,8 @@ export async function registerRoutes(
         selectedFramework = frameworkOverride.toLowerCase();
       } else {
         // Use AI goal-based selection (Daily WOD)
-        selectedFramework = pickFrameworkForGoal(profile.primaryGoal ?? null);
+        const goalBasedFramework = pickFrameworkForGoal(profile.primaryGoal ?? null);
+        selectedFramework = personalizeFrameworkSelection(goalBasedFramework, personalization);
       }
 
       // Generate workout using appropriate framework generator
