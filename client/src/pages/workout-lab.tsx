@@ -500,17 +500,6 @@ export default function WorkoutLab() {
               <h3 className="text-xl font-bold text-white">{dropOffRisk.level === "high" ? "High" : dropOffRisk.level === "medium" ? "Medium" : "Low"} risk</h3>
               <p className="text-xs text-muted-foreground">{plannedSessionsPerWeek} planned sessions / week • Missed {missedPlannedSessions} so far</p>
             </div>
-            <div
-              className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                dropOffRisk.level === "high"
-                  ? "bg-red-500/20 text-red-200 border border-red-500/40"
-                  : dropOffRisk.level === "medium"
-                    ? "bg-amber-500/20 text-amber-100 border border-amber-500/30"
-                    : "bg-emerald-500/20 text-emerald-100 border border-emerald-500/30"
-              }`}
-            >
-              {dropOffRisk.level} risk
-            </div>
           </div>
           <div className="text-sm text-gray-300 space-y-2">
             {dropOffRisk.reasons.length > 0 ? (
