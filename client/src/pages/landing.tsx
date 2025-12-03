@@ -72,9 +72,6 @@ export default function Landing() {
             <Zap className="w-5 h-5 mr-2 fill-current" />
             Get Started
           </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            Sign in with your Replit account
-          </p>
         </motion.div>
       </div>
     </MobileLayout>
