@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.myhiitlab.app',
-  appName: 'Hiit Coach',
+  appName: 'Hiit Lab',
   webDir: 'dist/public',
   server: {
     androidScheme: 'https'

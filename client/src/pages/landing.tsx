@@ -29,7 +29,7 @@ export default function Landing() {
             transition={{ delay: 0.2 }}
           >
             <h1 className="text-6xl font-display font-bold text-white mb-3 leading-none">
-              HIIT<br />COACH
+              HIIT<br />LAB
             </h1>
             <p className="text-xl text-muted-foreground">
               AI-Powered Training, Personalized for Every Level

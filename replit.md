@@ -1,8 +1,8 @@
-# HIIT Coach - Personalized HIIT Workout App
+# Hiit Lab - Personalized HIIT Workout App
 
 ## Overview
 
-HIIT Coach is a mobile-first fitness application that generates personalized high-intensity interval training (HIIT) workouts using AI-driven personalization. The app adapts workout difficulty, exercise selection, and framework choices based on user performance history, equipment availability, fitness goals, and recovery status.
+Hiit Lab is a mobile-first fitness application that generates personalized high-intensity interval training (HIIT) workouts using AI-driven personalization. The app adapts workout difficulty, exercise selection, and framework choices based on user performance history, equipment availability, fitness goals, and recovery status.
 
 The application supports multiple HIIT frameworks (EMOM, Tabata, AMRAP, Circuit) and provides real-time workout guidance with audio/visual cues, exercise videos, and performance tracking. Built as a Progressive Web App with Capacitor support for native iOS/Android deployment.
 
