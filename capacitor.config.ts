@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.hittcoach.hittcoach',
+  appId: 'com.myhiitlab.app',
   appName: 'Hiit Coach',
   webDir: 'dist/public',
   server: {
