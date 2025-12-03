@@ -1,4 +1,3 @@
-import { Deploy } from 'cordova-plugin-ionic/dist/ngx';
 import { Capacitor } from '@capacitor/core';
 
 /**
@@ -6,7 +5,8 @@ import { Capacitor } from '@capacitor/core';
  * Checks for and downloads app updates without App Store review
  */
 
-let deployInstance: Deploy | null = null;
+// Use Capacitor plugin interface instead of Angular wrapper
+declare const IonicDeploy: any;
 
 export async function initializeDeploy() {
   // Only initialize on native platforms
@@ -15,50 +15,44 @@ export async function initializeDeploy() {
     return;
   }
 
+  // Deploy plugin is auto-configured via capacitor.config.ts and Info.plist
+  // Just check for updates on launch
   try {
-    deployInstance = new Deploy();
-
-    console.log('[Deploy] Initializing...');
-    await deployInstance.configure({
-      appId: '76606737',
-      channel: 'Production',
-    });
-
-    // Check for updates on app launch
+    console.log('[Deploy] Checking for updates...');
     await checkForUpdate();
-
-    console.log('[Deploy] Initialized successfully');
   } catch (error) {
     console.error('[Deploy] Initialization error:', error);
   }
 }
 
 export async function checkForUpdate() {
-  if (!deployInstance) {
-    console.log('[Deploy] Not initialized');
+  if (!Capacitor.isNativePlatform()) {
     return;
   }
 
   try {
-    console.log('[Deploy] Checking for updates...');
+    if (typeof IonicDeploy === 'undefined') {
+      console.log('[Deploy] Plugin not available');
+      return;
+    }
 
-    const update = await deployInstance.checkForUpdate();
+    const update = await IonicDeploy.checkForUpdate();
 
     if (update.available) {
       console.log('[Deploy] Update available!', update);
 
       // Download the update
-      await deployInstance.downloadUpdate((progress) => {
+      await IonicDeploy.downloadUpdate((progress: number) => {
         console.log(`[Deploy] Downloading: ${progress}%`);
       });
 
       console.log('[Deploy] Update downloaded, extracting...');
-      await deployInstance.extractUpdate();
+      await IonicDeploy.extractUpdate();
 
       console.log('[Deploy] Update ready, will reload on next launch');
 
       // Reload the app to apply update
-      await deployInstance.reloadApp();
+      await IonicDeploy.reloadApp();
     } else {
       console.log('[Deploy] App is up to date');
     }
@@ -68,14 +62,13 @@ export async function checkForUpdate() {
 }
 
 export async function syncNow() {
-  if (!deployInstance) {
-    console.log('[Deploy] Not initialized');
+  if (!Capacitor.isNativePlatform() || typeof IonicDeploy === 'undefined') {
     return;
   }
 
   try {
     console.log('[Deploy] Syncing now...');
-    await deployInstance.sync({ updateMethod: 'auto' });
+    await IonicDeploy.sync({ updateMethod: 'auto' });
     console.log('[Deploy] Sync complete');
   } catch (error) {
     console.error('[Deploy] Sync error:', error);
@@ -83,12 +76,12 @@ export async function syncNow() {
 }
 
 export async function getCurrentVersion() {
-  if (!deployInstance) {
+  if (!Capacitor.isNativePlatform() || typeof IonicDeploy === 'undefined') {
     return null;
   }
 
   try {
-    const snapshot = await deployInstance.getCurrentVersion();
+    const snapshot = await IonicDeploy.getCurrentVersion();
     return snapshot;
   } catch (error) {
     console.error('[Deploy] Error getting version:', error);
