@@ -11,6 +11,12 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchShowDuration: 0,
     },
+    Deploy: {
+      appId: '76606737',
+      channel: 'Production',
+      updateMethod: 'auto',
+      maxVersions: 2,
+    },
   },
 };
 

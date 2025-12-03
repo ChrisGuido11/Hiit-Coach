@@ -180,3 +180,4 @@ export function getRecoveryPenalty(recoveryScore: number): number {
   return 0.1; // Very low recovery, heavy penalty
 }
 
+
