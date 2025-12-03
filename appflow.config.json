@@ -1,0 +1,32 @@
+{
+  "apps": [
+    {
+      "appId": "76606737",
+      "name": "Hiit Lab",
+      "nativeConfigs": [
+        {
+          "name": "Production",
+          "type": "production",
+          "buildConfiguration": "Release",
+          "ios": {
+            "buildVersion": "auto",
+            "version": "1.0.0",
+            "bundleId": "com.myhiitlab.app",
+            "displayName": "Hiit Lab"
+          }
+        },
+        {
+          "name": "Development",
+          "type": "development",
+          "buildConfiguration": "Debug",
+          "ios": {
+            "buildVersion": "auto",
+            "version": "1.0.0-dev",
+            "bundleId": "com.myhiitlab.app.dev",
+            "displayName": "Hiit Lab Dev"
+          }
+        }
+      ]
+    }
+  ]
+}
