@@ -40,6 +40,7 @@ import { getEquipmentLabel, normalizeEquipment, migrateEquipment, type Equipment
 import { PRIMARY_GOALS, buildGoalWeights, type PrimaryGoalId } from "@shared/goals";
 import type { Profile as ProfileModel, WorkoutRound, WorkoutSession } from "@shared/schema";
 import { getQueryFn } from "@/lib/queryClient";
+import { supabase } from "@/lib/supabase";
 
 // Icon mapping for goals
 const GOAL_ICONS = {
@@ -144,15 +145,25 @@ export default function Profile() {
 
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Delete user data from our database
       const res = await fetch("/api/auth/deleteAccount", {
         method: "DELETE",
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to delete account");
-      return res.json();
+      if (!res.ok) throw new Error("Failed to delete account data");
+
+      // Delete Supabase auth user
+      const { error } = await supabase.auth.admin.deleteUser(user.id);
+      if (error) throw error;
+
+      return true;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({ title: "Account deleted", description: "Your account has been permanently deleted." });
+      await supabase.auth.signOut();
       setTimeout(() => window.location.href = "/", 500);
     },
     onError: (error: Error) => {
@@ -160,8 +171,9 @@ export default function Profile() {
     },
   });
 
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast({ title: "Signed out", description: "You have been logged out successfully." });
   };
 
   const handleDeleteAccount = () => {

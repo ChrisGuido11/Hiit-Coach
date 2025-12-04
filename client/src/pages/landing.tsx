@@ -1,13 +1,279 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Zap, Timer, TrendingUp, Target } from "lucide-react";
+import { Zap, Timer, TrendingUp, Target, Mail, Lock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import MobileLayout from "@/components/layout/mobile-layout";
+import { supabase } from "@/lib/supabase";
 
 export default function Landing() {
-  const handleLogin = () => {
-    window.location.href = "/api/login";
+  const [mode, setMode] = useState<'landing' | 'signin' | 'signup'>('landing');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        toast({
+          title: "Account created!",
+          description: "Welcome to Hiit Lab. Let's get started!",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Sign up failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Welcome back!",
+        description: "Successfully signed in.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Sign in failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (mode === 'signin') {
+    return (
+      <MobileLayout hideNav>
+        <div className="h-full flex flex-col justify-center p-6 bg-black">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-display font-bold text-white mb-2">Welcome Back</h1>
+              <p className="text-muted-foreground">Sign in to continue your training</p>
+            </div>
+
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-white uppercase tracking-wider">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 bg-secondary/50 border-border/50"
+                    placeholder="your@email.com"
+                    required
+                    data-testid="input-email"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-white uppercase tracking-wider">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 bg-secondary/50 border-border/50"
+                    placeholder="••••••••"
+                    required
+                    data-testid="input-password"
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full h-12 bg-primary text-black hover:bg-primary/90 font-bold uppercase tracking-wider"
+                data-testid="button-signin"
+              >
+                {loading ? "Signing in..." : "Sign In"}
+              </Button>
+            </form>
+
+            <div className="text-center">
+              <button
+                onClick={() => setMode('signup')}
+                className="text-primary hover:text-primary/80 text-sm font-bold"
+              >
+                Don't have an account? Sign up
+              </button>
+            </div>
+
+            <div className="text-center">
+              <button
+                onClick={() => setMode('landing')}
+                className="text-muted-foreground hover:text-white text-sm"
+              >
+                ← Back
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      </MobileLayout>
+    );
+  }
+
+  if (mode === 'signup') {
+    return (
+      <MobileLayout hideNav>
+        <div className="h-full flex flex-col justify-center p-6 bg-black">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-display font-bold text-white mb-2">Create Account</h1>
+              <p className="text-muted-foreground">Start your fitness journey today</p>
+            </div>
+
+            <form onSubmit={handleSignUp} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-white uppercase tracking-wider">First Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="pl-10 bg-secondary/50 border-border/50"
+                      placeholder="John"
+                      required
+                      data-testid="input-firstname"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-white uppercase tracking-wider">Last Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="pl-10 bg-secondary/50 border-border/50"
+                      placeholder="Doe"
+                      required
+                      data-testid="input-lastname"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-white uppercase tracking-wider">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 bg-secondary/50 border-border/50"
+                    placeholder="your@email.com"
+                    required
+                    data-testid="input-email"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-white uppercase tracking-wider">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 bg-secondary/50 border-border/50"
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                    data-testid="input-password"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full h-12 bg-primary text-black hover:bg-primary/90 font-bold uppercase tracking-wider"
+                data-testid="button-signup"
+              >
+                {loading ? "Creating account..." : "Create Account"}
+              </Button>
+            </form>
+
+            <div className="text-center">
+              <button
+                onClick={() => setMode('signin')}
+                className="text-primary hover:text-primary/80 text-sm font-bold"
+              >
+                Already have an account? Sign in
+              </button>
+            </div>
+
+            <div className="text-center">
+              <button
+                onClick={() => setMode('landing')}
+                className="text-muted-foreground hover:text-white text-sm"
+              >
+                ← Back
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      </MobileLayout>
+    );
+  }
 
   return (
     <MobileLayout hideNav>
@@ -62,15 +328,23 @@ export default function Landing() {
           initial={{ y: 50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6 }}
-          className="space-y-4"
+          className="space-y-3"
         >
           <Button
-            onClick={handleLogin}
+            onClick={() => setMode('signup')}
             className="w-full h-14 text-lg font-bold uppercase tracking-wider bg-primary text-black hover:bg-primary/90 neon-border"
-            data-testid="button-login"
+            data-testid="button-get-started"
           >
             <Zap className="w-5 h-5 mr-2 fill-current" />
             Get Started
+          </Button>
+          <Button
+            onClick={() => setMode('signin')}
+            variant="outline"
+            className="w-full h-14 text-lg font-bold uppercase tracking-wider border-primary/50 text-primary hover:bg-primary/10"
+            data-testid="button-signin-landing"
+          >
+            Sign In
           </Button>
         </motion.div>
       </div>
