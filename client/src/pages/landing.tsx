@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Zap, Timer, TrendingUp, Target, Mail, Lock } from "lucide-react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import MobileLayout from "@/components/layout/mobile-layout";
 import { supabase } from "@/lib/supabase";
 
 export default function Landing() {
+  const [, setLocation] = useLocation();
   const [mode, setMode] = useState<'landing' | 'signin' | 'signup'>('landing');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,10 +30,7 @@ export default function Landing() {
       if (error) throw error;
 
       if (data.user) {
-        toast({
-          title: "Account created!",
-          description: "Welcome to Hiit Lab. Let's get started!",
-        });
+        setLocation('/');
       }
     } catch (error: any) {
       toast({
@@ -56,10 +55,7 @@ export default function Landing() {
 
       if (error) throw error;
 
-      toast({
-        title: "Welcome back!",
-        description: "Successfully signed in.",
-      });
+      setLocation('/');
     } catch (error: any) {
       toast({
         title: "Sign in failed",
