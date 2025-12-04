@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Zap, Timer, TrendingUp, Target, Mail, Lock } from "lucide-react";
 import { useLocation } from "wouter";
@@ -8,14 +8,23 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import MobileLayout from "@/components/layout/mobile-layout";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Landing() {
   const [, setLocation] = useLocation();
+  const { isAuthenticated } = useAuth();
   const [mode, setMode] = useState<'landing' | 'signin' | 'signup'>('landing');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  // Redirect to home when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      setLocation('/');
+    }
+  }, [isAuthenticated, setLocation]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,9 +38,14 @@ export default function Landing() {
 
       if (error) throw error;
 
-      if (data.user) {
-        setLocation('/');
+      // If email confirmation is required, session will be null
+      if (data.session === null) {
+        toast({
+          title: "Check your email",
+          description: "Please verify your email address to continue.",
+        });
       }
+      // Otherwise, the useEffect will handle navigation when session is established
     } catch (error: any) {
       toast({
         title: "Sign up failed",
@@ -55,7 +69,7 @@ export default function Landing() {
 
       if (error) throw error;
 
-      setLocation('/');
+      // useEffect will handle navigation when session is established
     } catch (error: any) {
       toast({
         title: "Sign in failed",
