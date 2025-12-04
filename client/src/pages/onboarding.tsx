@@ -30,6 +30,7 @@ import MobileLayout from "@/components/layout/mobile-layout";
 import { EquipmentSelector } from "@/components/equipment-selector";
 import { normalizeEquipment, type EquipmentId } from "@shared/equipment";
 import { PRIMARY_GOALS, buildGoalWeights, type PrimaryGoalId } from "@shared/goals";
+import { apiRequest } from "@/lib/queryClient";
 
 
 // Icon mapping for goals
@@ -58,13 +59,7 @@ export default function Onboarding() {
 
   const createProfileMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await fetch("/api/profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to create profile");
+      const res = await apiRequest("POST", "/api/profile", data);
       return res.json();
     },
     onSuccess: () => {
