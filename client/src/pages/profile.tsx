@@ -301,7 +301,7 @@ export default function Profile() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">
-              {profile?.displayName || user?.user_metadata?.first_name || "Athlete"}
+              {profile?.displayName || "Athlete"}
             </h1>
             <p className="text-sm text-muted-foreground">{user?.email}</p>
           </div>

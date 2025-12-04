@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Zap, Timer, TrendingUp, Target, Mail, Lock, User } from "lucide-react";
+import { Zap, Timer, TrendingUp, Target, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,6 @@ export default function Landing() {
   const [mode, setMode] = useState<'landing' | 'signin' | 'signup'>('landing');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -25,12 +23,6 @@ export default function Landing() {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-          },
-        },
       });
 
       if (error) throw error;
@@ -174,40 +166,6 @@ export default function Landing() {
             </div>
 
             <form onSubmit={handleSignUp} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-white uppercase tracking-wider">First Name</label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className="pl-10 bg-secondary/50 border-border/50"
-                      placeholder="John"
-                      required
-                      data-testid="input-firstname"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-white uppercase tracking-wider">Last Name</label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className="pl-10 bg-secondary/50 border-border/50"
-                      placeholder="Doe"
-                      required
-                      data-testid="input-lastname"
-                    />
-                  </div>
-                </div>
-              </div>
-
               <div className="space-y-2">
                 <label className="text-sm font-bold text-white uppercase tracking-wider">Email</label>
                 <div className="relative">
